@@ -33,7 +33,7 @@ const POS = () => {
 
   const fetchProducts = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('products').select('*').eq('active', 1).limit(50);
+    const { data, error } = await supabase.from('products').select('*').eq('active', true).limit(50);
     if (!error && data && data.length > 0) {
       setProducts(data);
     } else {
@@ -65,8 +65,8 @@ const POS = () => {
           igv: isBoleta ? parseFloat(igv) : 0,
           total: parseFloat(total),
           company_id: 1,
-          is_proforma: emisionType === EMISION_TYPES.COTIZACION ? 1 : 0,
-          is_adelanto: emisionType === EMISION_TYPES.ADELANTO ? 1 : 0,
+          is_proforma: emisionType === EMISION_TYPES.COTIZACION,
+          is_adelanto: emisionType === EMISION_TYPES.ADELANTO,
         }])
         .select().single();
 
