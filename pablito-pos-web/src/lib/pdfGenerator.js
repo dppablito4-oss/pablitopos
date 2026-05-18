@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-export const generateTicketPDF = (cartData, totals, companyData = null) => {
+export const generateTicketPDF = (cartData, totals, companyData = null, hashSunat = null) => {
   // Configuración de un formato ticket térmico aproximado (80mm)
   // 80mm de ancho x altura dinámica
   const doc = new jsPDF({
@@ -85,6 +85,10 @@ export const generateTicketPDF = (cartData, totals, companyData = null) => {
   // Footer
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
+  if (hashSunat) {
+    doc.text(`Hash SUNAT: ${hashSunat}`, 40, y, { align: "center" });
+    y += 5;
+  }
   doc.text("¡Gracias por su compra!", 40, y, { align: "center" });
   y += 4;
   doc.text("Generado por Pablito POS Web", 40, y, { align: "center" });

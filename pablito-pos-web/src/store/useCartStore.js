@@ -2,9 +2,28 @@ import { create } from 'zustand';
 
 const IGV_RATE = 0.18;
 
+export const EMISION_TYPES = {
+  BOLETA: 'Boleta Electrónica',
+  NOTA: 'Nota de Venta Interna',
+  ADELANTO: 'Adelanto',
+  COTIZACION: 'Cotización'
+};
+
+export const PRINT_FORMATS = {
+  TICKET: 'TICKET',
+  A4: 'A4'
+};
+
 export const useCartStore = create((set, get) => ({
   cart: [],
+  emisionType: EMISION_TYPES.BOLETA,
+  printFormat: PRINT_FORMATS.TICKET,
+  lastReceipt: null, // Guardaremos los datos de la última venta para impresión
   
+  setEmisionType: (type) => set({ emisionType: type }),
+  setPrintFormat: (format) => set({ printFormat: format }),
+  setLastReceipt: (receiptData) => set({ lastReceipt: receiptData }),
+
   addItem: (product) => set((state) => {
     const existingItem = state.cart.find(item => item.id === product.id);
     if (existingItem) {
@@ -33,15 +52,10 @@ export const useCartStore = create((set, get) => ({
     )
   })),
 
-  clearCart: () => set({ cart: [] }),
+  clearCart: () => set({ cart: [], emisionType: EMISION_TYPES.BOLETA }),
 
   getTotals: () => {
     const { cart } = get();
-    // Suponemos que los precios en la BD NO incluyen IGV y se calcula extra,
-    // o SI incluyen IGV y debemos desglosar. Según tu app de Python,
-    // asumiremos que se calcula el IGV sobre el subtotal base.
-    // Aquí implementamos el cálculo estándar: Subtotal es la suma de precios,
-    // luego se calcula IGV y Total.
     const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
     const igv = subtotal * IGV_RATE;
     const total = subtotal + igv;

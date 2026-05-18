@@ -27,3 +27,41 @@ body {
 #root {
   width: 100%;
 }
+
+/* Print Styles */
+@media print {
+  /* Ocultar todo lo que no sea para imprimir */
+  body * {
+    visibility: hidden;
+  }
+  
+  .print\:block, .print\:block * {
+    visibility: visible;
+  }
+
+  /* Resetear margenes del componente impreso al top-left */
+  .print\:block {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Formato Ticket 80mm */
+  @page {
+    margin: 0;
+  }
+
+  .print-ticket {
+    width: 80mm;
+    margin: 0;
+    padding: 5mm;
+  }
+
+  /* Formato A4 */
+  .print-a4 {
+    width: 210mm;
+    margin: 0 auto;
+    padding: 15mm;
+  }
+}
