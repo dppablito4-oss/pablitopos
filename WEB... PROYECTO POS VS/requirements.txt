@@ -1,0 +1,9 @@
+ttkbootstrap
+Pillow
+reportlab
+qrcode
+pandas
+openpyxl
+fastapi
+uvicorn
+pydantic

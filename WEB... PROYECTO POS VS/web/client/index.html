@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pablito POS - Cliente</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #1f2937; }
+    h1 { margin-bottom: 8px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    label { display: block; margin: 8px 0 4px; }
+    input { width: 100%; padding: 8px; }
+    button { padding: 8px 12px; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 6px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Portal del Cliente</h1>
+
+  <section class="card">
+    <h2>Registro rápido</h2>
+    <label>Nombre completo</label>
+    <input id="c-name" />
+    <label>DNI</label>
+    <input id="c-dni" />
+    <label>Celular</label>
+    <input id="c-phone" />
+    <button onclick="registerClient()">Registrarme</button>
+    <div id="result"></div>
+  </section>
+
+  <section class="card">
+    <h2>Productos en stock</h2>
+    <button onclick="loadProducts()">Recargar</button>
+    <table>
+      <thead><tr><th>Producto</th><th>Precio</th><th>Stock</th></tr></thead>
+      <tbody id="product-rows"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const API = 'http://localhost:8000';
+
+    async function registerClient() {
+      const payload = {
+        full_name: document.getElementById('c-name').value,
+        dni: document.getElementById('c-dni').value,
+        phone: document.getElementById('c-phone').value,
+      };
+      const res = await fetch(`${API}/api/clients/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      document.getElementById('result').innerText = res.ok ? 'Registro OK' : data.detail;
+    }
+
+    async function loadProducts() {
+      const res = await fetch(`${API}/api/products/`);
+      const data = await res.json();
+      const rows = data.map(p => `
+        <tr>
+          <td>${p.name}</td>
+          <td>${p.price}</td>
+          <td>${p.stock ?? ''}</td>
+        </tr>
+      `).join('');
+      document.getElementById('product-rows').innerHTML = rows;
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>

@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pablito POS - Admin</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05060a;
+      --panel: #0b1025;
+      --panel-2: #111a3a;
+      --border: #2737ff;
+      --text: #f5f7ff;
+      --muted: #a6b2ff;
+      --accent: #00d1ff;
+      --accent-2: #7f5bff;
+      --danger: #ff3b3b;
+      --success: #00e676;
+      --warning: #ffb300;
+      --shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+      --radius: 14px;
+      --gap: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    aside {
+      background: #0a0f22;
+      border-right: 2px solid var(--border);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 10px;
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .brand h1 { margin: 0; font-size: 18px; letter-spacing: 0.6px; }
+    .brand span { color: var(--muted); font-size: 13px; }
+
+    nav { display: flex; flex-direction: column; gap: 8px; }
+    nav button {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+    nav button:hover,
+    nav button.active {
+      background: var(--panel-2);
+      border-color: var(--border);
+    }
+
+    main {
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #0b1638;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      gap: var(--gap);
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .card {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h3 { margin: 0 0 10px; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 20px;
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #001a33;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .form-row { display: grid; gap: 10px; }
+    label { font-size: 13px; color: var(--muted); }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #060a18;
+      color: var(--text);
+    }
+    textarea { min-height: 80px; resize: vertical; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: var(--accent);
+      border: none;
+      color: #061018;
+      padding: 8px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn.danger { background: var(--danger); color: #210b0b; }
+    .btn.warning { background: var(--warning); color: #1d1606; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+    .timeline-item {
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #0c1333;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-right: none;
+        border-bottom: 2px solid var(--border);
+      }
+
+      nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+
+      nav button {
+        flex: 1 1 auto;
+        text-align: center;
+      }
+
+      main {
+        padding: 18px 16px 30px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .brand h1 { font-size: 16px; }
+      .pill { font-size: 11px; }
+      .grid { grid-template-columns: 1fr; }
+      .actions { flex-direction: column; }
+      .btn { width: 100%; }
+      header { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <h1>PABLITO_POS</h1>
+      <span>Sistema de Emisión de Comprobantes</span>
+    </div>
+    <nav>
+      <button class="active" data-section="dashboard">Dashboard</button>
+      <button data-section="sales">Ventas</button>
+      <button data-section="clients">Clientes</button>
+      <button data-section="products">Productos</button>
+      <button data-section="fiados">Fiados</button>
+      <button data-section="boletin">Boletín</button>
+      <button data-section="history">Historial</button>
+      <button data-section="export">Exportación</button>
+      <button data-section="update">Actualizar Info</button>
+      <button data-section="verify">Verificar Comprobante</button>
+    </nav>
+    <div class="card">
+      <h3>Estado</h3>
+      <p class="muted">Conexión local activa</p>
+      <div class="stat"><span>API</span><span class="badge">ONLINE</span></div>
+      <div class="stat"><span>BD</span><span class="badge">SQLite</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <h2 style="margin:0;">Panel Administrativo</h2>
+        <p class="muted" style="margin:6px 0 0;">Mantén la esencia del escritorio con un estilo oscuro y compacto.</p>
+      </div>
+      <div class="header-actions">
+        <span class="pill">Caja #01</span>
+        <span class="pill">Usuario: Admin</span>
+        <button class="btn secondary">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <section class="section active" id="dashboard">
+      <div class="grid">
+        <div class="card">
+          <h3>Ventas del día</h3>
+          <p class="muted">Total facturado hoy</p>
+          <div class="stat"><strong id="stat-sales">S/ 0.00</strong><span class="badge">SIN DATOS</span></div>
+        </div>
+        <div class="card">
+          <h3>Productos en stock</h3>
+          <p class="muted">Stock general</p>
+          <div class="stat"><strong id="stat-products">0</strong><span class="badge">OK</span></div>
+        </div>
+        <div class="card">
+          <h3>Clientes activos</h3>
+          <p class="muted">Últimos 30 días</p>
+          <div class="stat"><strong id="stat-clients">0</strong><span class="badge">OK</span></div>
+        </div>
+        <div class="card">
+          <h3>Boletas emitidas</h3>
+          <p class="muted">Hoy</p>
+          <div class="stat"><strong id="stat-boletas">0</strong><span class="badge">SIN DATOS</span></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 16px;">
+        <div class="card">
+          <h3>Actividad reciente</h3>
+          <div class="timeline">
+            <div class="timeline-item">Sin actividad registrada.</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Resumen de caja</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Concepto</th><th>Monto</th></tr></thead>
+              <tbody>
+                <tr><td colspan="2" class="muted">Sin datos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="sales">
+      <div class="grid">
+        <div class="card">
+          <h3>Registrar venta</h3>
+          <div class="form-row">
+            <label>Cliente</label>
+            <input placeholder="Buscar por DNI / Nombre" />
+            <label>Producto</label>
+            <input placeholder="Buscar producto" />
+            <label>Cantidad</label>
+            <input type="number" value="1" />
+            <label>Método de pago</label>
+            <select>
+              <option>Efectivo</option>
+              <option>Transferencia</option>
+              <option>Tarjeta</option>
+            </select>
+            <div class="actions">
+              <button class="btn">Agregar ítem</button>
+              <button class="btn secondary">Limpiar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Detalle de venta</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead>
+              <tbody>
+                <tr><td colspan="4" class="muted">Sin ítems.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="stat" style="margin-top: 10px;">
+            <span>Total</span><strong>S/ 0.00</strong>
+          </div>
+          <div class="actions" style="margin-top: 12px;">
+            <button class="btn">Emitir boleta</button>
+            <button class="btn warning">Reservar</button>
+            <button class="btn danger">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="clients">
+      <div class="grid">
+        <div class="card">
+          <h3>Registrar cliente</h3>
+          <div class="form-row">
+            <label>Nombre completo</label>
+            <input id="client-full-name" placeholder="" />
+            <label>DNI</label>
+            <input id="client-dni" placeholder="" />
+            <label>Celular</label>
+            <input id="client-phone" placeholder="" />
+            <label>Email</label>
+            <input id="client-email" placeholder="" />
+            <label>Dirección</label>
+            <input id="client-address" placeholder="" />
+            <div class="actions">
+              <button class="btn" onclick="createClient()">Guardar</button>
+              <button class="btn secondary" onclick="clearClientForm()">Limpiar</button>
+            </div>
+            <p class="muted" id="client-form-result"></p>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Listado de clientes</h3>
+          <input id="client-search" placeholder="Buscar por DNI, nombre o celular" />
+          <div class="actions" style="margin-top: 10px;">
+            <button class="btn secondary" onclick="loadClients()">Buscar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Cliente</th><th>DNI</th><th>Celular</th><th>Acciones</th></tr></thead>
+              <tbody id="clients-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="products">
+      <div class="grid">
+        <div class="card">
+          <h3>Producto / Servicio</h3>
+          <div class="form-row">
+            <label>Nombre</label>
+            <input id="product-name" placeholder="" />
+            <label>Unidad</label>
+            <input id="product-unit" placeholder="" />
+            <label>Precio</label>
+            <input id="product-price" type="number" step="0.01" />
+            <label>Stock</label>
+            <input id="product-stock" type="number" />
+            <div class="actions">
+              <button class="btn" onclick="createProduct()">Guardar</button>
+              <button class="btn secondary" onclick="clearProductForm()">Limpiar</button>
+            </div>
+            <p class="muted" id="product-form-result"></p>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Inventario</h3>
+          <input id="product-search" placeholder="Buscar producto" />
+          <div class="actions" style="margin-top: 10px;">
+            <button class="btn secondary" onclick="loadProducts()">Buscar</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Código</th><th>Nombre</th><th>Stock</th><th>Precio</th><th></th></tr></thead>
+              <tbody id="products-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="fiados">
+      <div class="grid">
+        <div class="card">
+          <h3>Registrar fiado</h3>
+          <div class="form-row">
+            <label>Cliente</label>
+            <input placeholder="Buscar cliente" />
+            <label>Monto</label>
+            <input type="number" step="0.01" />
+            <label>Observación</label>
+            <textarea></textarea>
+            <div class="actions">
+              <button class="btn">Registrar</button>
+              <button class="btn secondary">Cancelar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Estado de fiados</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Cliente</th><th>Saldo</th><th>Último pago</th><th></th></tr></thead>
+              <tbody>
+                <tr><td colspan="4" class="muted">Sin datos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="boletin">
+      <div class="grid">
+        <div class="card">
+          <h3>Boletín informativo</h3>
+          <div class="form-row">
+            <label>Título</label>
+            <input />
+            <label>Mensaje</label>
+            <textarea></textarea>
+            <div class="actions">
+              <button class="btn">Enviar</button>
+              <button class="btn secondary">Programar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Historial de boletines</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Título</th><th>Estado</th></tr></thead>
+              <tbody>
+                <tr><td colspan="3" class="muted">Sin datos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="history">
+      <div class="grid">
+        <div class="card">
+          <h3>Historial de comprobantes</h3>
+          <div class="form-row">
+            <label>Rango de fechas</label>
+            <input type="date" />
+            <input type="date" />
+            <label>Buscar</label>
+            <input placeholder="N° comprobante, cliente" />
+            <div class="actions">
+              <button class="btn">Buscar</button>
+              <button class="btn secondary">Exportar PDF</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Cliente</th><th>Comprobante</th><th>Total</th><th></th></tr></thead>
+              <tbody>
+                <tr><td colspan="5" class="muted">Sin datos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="export">
+      <div class="grid">
+        <div class="card">
+          <h3>Exportación</h3>
+          <div class="form-row">
+            <label>Tipo de informe</label>
+            <select>
+              <option>Ventas</option>
+              <option>Clientes</option>
+              <option>Productos</option>
+            </select>
+            <label>Rango</label>
+            <input type="date" />
+            <input type="date" />
+            <div class="actions">
+              <button class="btn">Exportar Excel</button>
+              <button class="btn secondary">Exportar PDF</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Exportaciones recientes</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Tipo</th><th>Estado</th></tr></thead>
+              <tbody>
+                <tr><td colspan="3" class="muted">Sin datos.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="update">
+      <div class="grid">
+        <div class="card">
+          <h3>Actualizar datos de empresa</h3>
+          <div class="form-row">
+            <label>Razón social</label>
+            <input />
+            <label>RUC</label>
+            <input />
+            <label>Dirección fiscal</label>
+            <input />
+            <label>Correo</label>
+            <input />
+            <div class="actions">
+              <button class="btn">Guardar cambios</button>
+              <button class="btn secondary">Cancelar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Configuración</h3>
+          <div class="form-row">
+            <label>IGV %</label>
+            <input type="number" step="0.01" />
+            <label>Moneda</label>
+            <select><option>PEN (S/)</option><option>USD ($)</option></select>
+            <div class="actions">
+              <button class="btn">Actualizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="verify">
+      <div class="grid">
+        <div class="card">
+          <h3>Verificar comprobante</h3>
+          <div class="form-row">
+            <label>Serie / Número</label>
+            <input placeholder="B001-000123" />
+            <label>Token de verificación</label>
+            <input placeholder="" />
+            <div class="actions">
+              <button class="btn">Verificar</button>
+              <button class="btn secondary">Limpiar</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Resultado</h3>
+          <p class="muted">Aquí se muestra el estado del comprobante.</p>
+          <div class="stat"><span>Estado</span><span class="badge">Válido</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API = 'http://localhost:8000';
+    const buttons = document.querySelectorAll('nav button');
+    const sections = document.querySelectorAll('.section');
+
+    const clientsTable = document.getElementById('clients-table');
+    const productsTable = document.getElementById('products-table');
+    const clientResult = document.getElementById('client-form-result');
+    const productResult = document.getElementById('product-form-result');
+
+    async function fetchJson(url, options = {}) {
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data.detail || 'Error en la operación.';
+        throw new Error(message);
+      }
+      return data;
+    }
+
+    function renderEmptyRow(colspan) {
+      return `<tr><td colspan="${colspan}" class="muted">Sin datos.</td></tr>`;
+    }
+
+    async function loadStats() {
+      try {
+        const [clients, products] = await Promise.all([
+          fetchJson(`${API}/api/clients/`),
+          fetchJson(`${API}/api/products/`)
+        ]);
+        document.getElementById('stat-clients').innerText = clients.length;
+        document.getElementById('stat-products').innerText = products.length;
+      } catch (err) {
+        document.getElementById('stat-clients').innerText = '0';
+        document.getElementById('stat-products').innerText = '0';
+      }
+    }
+
+    async function loadClients() {
+      const query = document.getElementById('client-search').value.trim();
+      try {
+        const data = await fetchJson(`${API}/api/clients/?q=${encodeURIComponent(query)}`);
+        if (!data.length) {
+          clientsTable.innerHTML = renderEmptyRow(4);
+          return;
+        }
+        clientsTable.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.full_name}</td>
+            <td>${row.dni || ''}</td>
+            <td>${row.phone || ''}</td>
+            <td><button class="btn secondary" onclick="deleteClient(${row.id})">Eliminar</button></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        clientsTable.innerHTML = renderEmptyRow(4);
+      }
+    }
+
+    async function loadProducts() {
+      const query = document.getElementById('product-search').value.trim();
+      try {
+        const data = await fetchJson(`${API}/api/products/?q=${encodeURIComponent(query)}`);
+        if (!data.length) {
+          productsTable.innerHTML = renderEmptyRow(5);
+          return;
+        }
+        productsTable.innerHTML = data.map(row => `
+          <tr>
+            <td>${row.code || ''}</td>
+            <td>${row.name}</td>
+            <td>${row.stock ?? ''}</td>
+            <td>S/ ${Number(row.price).toFixed(2)}</td>
+            <td><button class="btn secondary" onclick="deleteProduct(${row.id})">Eliminar</button></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        productsTable.innerHTML = renderEmptyRow(5);
+      }
+    }
+
+    async function createClient() {
+      const payload = {
+        full_name: document.getElementById('client-full-name').value.trim(),
+        dni: document.getElementById('client-dni').value.trim(),
+        phone: document.getElementById('client-phone').value.trim(),
+        email: document.getElementById('client-email').value.trim(),
+        address: document.getElementById('client-address').value.trim(),
+      };
+      try {
+        await fetchJson(`${API}/api/clients/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        clientResult.innerText = 'Cliente guardado.';
+        clearClientForm();
+        await loadClients();
+        await loadStats();
+      } catch (err) {
+        clientResult.innerText = err.message;
+      }
+    }
+
+    async function createProduct() {
+      const payload = {
+        name: document.getElementById('product-name').value.trim(),
+        unit: document.getElementById('product-unit').value.trim(),
+        price: Number(document.getElementById('product-price').value || 0),
+        stock: document.getElementById('product-stock').value === ''
+          ? null
+          : Number(document.getElementById('product-stock').value),
+      };
+      try {
+        await fetchJson(`${API}/api/products/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        productResult.innerText = 'Producto guardado.';
+        clearProductForm();
+        await loadProducts();
+        await loadStats();
+      } catch (err) {
+        productResult.innerText = err.message;
+      }
+    }
+
+    async function deleteClient(clientId) {
+      if (!confirm('¿Eliminar cliente?')) return;
+      try {
+        await fetchJson(`${API}/api/clients/${clientId}`, { method: 'DELETE' });
+        await loadClients();
+        await loadStats();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteProduct(productId) {
+      if (!confirm('¿Eliminar producto?')) return;
+      try {
+        await fetchJson(`${API}/api/products/${productId}`, { method: 'DELETE' });
+        await loadProducts();
+        await loadStats();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function clearClientForm() {
+      document.getElementById('client-full-name').value = '';
+      document.getElementById('client-dni').value = '';
+      document.getElementById('client-phone').value = '';
+      document.getElementById('client-email').value = '';
+      document.getElementById('client-address').value = '';
+    }
+
+    function clearProductForm() {
+      document.getElementById('product-name').value = '';
+      document.getElementById('product-unit').value = '';
+      document.getElementById('product-price').value = '';
+      document.getElementById('product-stock').value = '';
+    }
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.section;
+        sections.forEach(section => {
+          section.classList.toggle('active', section.id === target);
+        });
+      });
+    });
+
+    window.createClient = createClient;
+    window.createProduct = createProduct;
+    window.clearClientForm = clearClientForm;
+    window.clearProductForm = clearProductForm;
+    window.loadClients = loadClients;
+    window.loadProducts = loadProducts;
+    window.deleteClient = deleteClient;
+    window.deleteProduct = deleteProduct;
+
+    loadStats();
+    loadClients();
+    loadProducts();
+  </script>
+</body>
+</html>
