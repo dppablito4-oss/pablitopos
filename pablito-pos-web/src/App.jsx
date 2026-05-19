@@ -2,6 +2,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
+import Clientes from './pages/Clientes';
+import Productos from './pages/Productos';
+import Historial from './pages/Historial';
+import Configuracion from './pages/Configuracion';
+import Fiados from './pages/Fiados';
 
 function App() {
   return (
@@ -11,7 +16,11 @@ function App() {
           <Route index element={<Navigate to="/pos" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="pos" element={<POS />} />
-          {/* Añadir más rutas: clientes, productos, historial */}
+          <Route path="clientes" element={<Clientes />} />
+          <Route path="productos" element={<Productos />} />
+          <Route path="historial" element={<Historial />} />
+          <Route path="fiados" element={<Fiados />} />
+          <Route path="configuracion" element={<Configuracion />} />
         </Route>
       </Routes>
     </Router>

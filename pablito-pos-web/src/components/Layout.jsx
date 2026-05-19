@@ -10,6 +10,7 @@ const Layout = () => {
     { name: 'Historial', href: '/historial', icon: History },
     { name: 'Clientes', href: '/clientes', icon: Users },
     { name: 'Productos', href: '/productos', icon: Package },
+    { name: 'Fiados', href: '/fiados', icon: Users },
     { name: 'Configuración', href: '/configuracion', icon: Settings },
   ];
 
