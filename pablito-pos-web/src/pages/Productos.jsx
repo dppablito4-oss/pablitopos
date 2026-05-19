@@ -1,34 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, Save, Package } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+const EMPTY_FORM = { code: '', name: '', unit: 'UND', price: '', stock: '', active: true };
 
 const Productos = () => {
   const [productos, setProductos] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
 
-  useEffect(() => {
-    // Placeholder para la carga de productos desde Supabase
-    setProductos([
-      { id: 1, code: 'P001', name: 'Arroz costeño 1kg', unit: 'UND', price: 4.50, stock: 100 },
-      { id: 2, code: 'P002', name: 'Aceite Primor 1L', unit: 'UND', price: 9.00, stock: 50 },
-    ]);
-  }, []);
+  useEffect(() => { fetchProductos(); }, []);
+
+  const fetchProductos = async () => {
+    setIsLoading(true);
+    setError(null);
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('name', { ascending: true });
+    if (error) { setError(error.message); }
+    else { setProductos(data || []); }
+    setIsLoading(false);
+  };
+
+  const filtered = productos.filter(p =>
+    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.code?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const openCreate = () => { setForm(EMPTY_FORM); setEditingId(null); setModalOpen(true); };
+  const openEdit = (p) => {
+    setForm({ code: p.code||'', name: p.name||'', unit: p.unit||'UND', price: p.price||'', stock: p.stock||0, active: p.active });
+    setEditingId(p.id); setModalOpen(true);
+  };
+  const closeModal = () => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre del producto es obligatorio.');
+    if (!form.price || isNaN(parseFloat(form.price))) return alert('El precio debe ser un número válido.');
+    setSaving(true);
+    const payload = {
+      code: form.code.trim().toUpperCase() || null,
+      name: form.name.trim().toUpperCase(),
+      unit: form.unit || 'UND',
+      price: parseFloat(form.price),
+      stock: parseInt(form.stock) || 0,
+      active: form.active,
+    };
+    let err;
+    if (editingId) {
+      const { error } = await supabase.from('products').update(payload).eq('id', editingId);
+      err = error;
+    } else {
+      const { error } = await supabase.from('products').insert([payload]);
+      err = error;
+    }
+    setSaving(false);
+    if (err) { alert('Error: ' + err.message); return; }
+    closeModal();
+    fetchProductos();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from('products').update({ active: false }).eq('id', deleteId);
+    if (error) alert('Error: ' + error.message);
+    setDeleteId(null);
+    fetchProductos();
+  };
+
+  const getStockBadge = (stock) => {
+    if (stock <= 0) return <span className="badge badge-error">Sin stock</span>;
+    if (stock < 10) return <span className="badge badge-warning">{stock}</span>;
+    return <span className="badge badge-success">{stock}</span>;
+  };
 
   return (
     <div className="flex flex-col h-full gap-4">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Gestión de Productos</h2>
-        <button className="btn btn-primary">
-          <Plus size={20} />
-          Nuevo Producto
+        <div>
+          <h2 className="text-2xl font-bold">Gestión de Productos</h2>
+          <p className="text-base-content/60 text-sm">{productos.filter(p=>p.active).length} productos activos</p>
+        </div>
+        <button className="btn btn-primary" onClick={openCreate}>
+          <Plus size={20} /> Nuevo Producto
         </button>
       </div>
 
-      <div className="bg-base-100 p-4 rounded-xl shadow-sm flex gap-4">
-        <div className="relative flex-1">
+      {/* Search */}
+      <div className="bg-base-100 p-4 rounded-xl shadow-sm">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
-          <input 
-            type="text" 
-            placeholder="Buscar por código o nombre..." 
+          <input
+            type="text"
+            placeholder="Buscar por código o nombre..."
             className="input input-bordered w-full pl-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -36,43 +108,139 @@ const Productos = () => {
         </div>
       </div>
 
+      {/* Table */}
       <div className="bg-base-100 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Nombre</th>
-                <th>Unidad</th>
-                <th>Precio</th>
-                <th>Stock</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productos.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.code.includes(searchTerm)).map((producto) => (
-                <tr key={producto.id} className="hover">
-                  <td><span className="badge badge-ghost">{producto.code}</span></td>
-                  <td className="font-medium">{producto.name}</td>
-                  <td>{producto.unit}</td>
-                  <td>S/ {producto.price.toFixed(2)}</td>
-                  <td>
-                    <span className={`badge ${producto.stock < 10 ? 'badge-error' : 'badge-success'}`}>
-                      {producto.stock}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="flex gap-2">
-                      <button className="btn btn-sm btn-ghost text-info"><Edit size={16} /></button>
-                      <button className="btn btn-sm btn-ghost text-error"><Trash2 size={16} /></button>
-                    </div>
-                  </td>
+        {error && (
+          <div className="alert alert-error m-4">
+            <span>Error de conexión: {error}</span>
+          </div>
+        )}
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <span className="loading loading-spinner loading-lg text-primary"></span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto flex-1">
+            <table className="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Nombre</th>
+                  <th>Unidad</th>
+                  <th>Precio</th>
+                  <th>Stock</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center text-base-content/50 py-12">
+                    <Package size={40} className="mx-auto mb-2 opacity-30" />
+                    {searchTerm ? 'Sin resultados para esa búsqueda.' : 'No hay productos registrados aún.'}
+                  </td></tr>
+                ) : filtered.map((p) => (
+                  <tr key={p.id} className="hover">
+                    <td><span className="badge badge-ghost font-mono">{p.code || '—'}</span></td>
+                    <td className="font-medium">{p.name}</td>
+                    <td>{p.unit || '—'}</td>
+                    <td className="font-bold text-primary">S/ {parseFloat(p.price).toFixed(2)}</td>
+                    <td>{getStockBadge(p.stock)}</td>
+                    <td>
+                      {p.active
+                        ? <span className="badge badge-success badge-sm">Activo</span>
+                        : <span className="badge badge-ghost badge-sm">Inactivo</span>}
+                    </td>
+                    <td>
+                      <div className="flex gap-2">
+                        <button className="btn btn-sm btn-ghost text-info" onClick={() => openEdit(p)}>
+                          <Edit size={16} />
+                        </button>
+                        <button className="btn btn-sm btn-ghost text-error" onClick={() => setDeleteId(p.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Modal Crear/Editar */}
+      {modalOpen && (
+        <div className="modal modal-open">
+          <div className="modal-box w-full max-w-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg">{editingId ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+              <button className="btn btn-sm btn-circle btn-ghost" onClick={closeModal}><X size={18}/></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">Código</span></label>
+                  <input type="text" className="input input-bordered" placeholder="Ej: P001"
+                    value={form.code} onChange={e => setForm({...form, code: e.target.value})} />
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">Unidad</span></label>
+                  <select className="select select-bordered" value={form.unit} onChange={e => setForm({...form, unit: e.target.value})}>
+                    <option>UND</option><option>KG</option><option>LT</option><option>MT</option><option>CJA</option><option>DOC</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Nombre del Producto *</span></label>
+                <input type="text" className="input input-bordered" placeholder="Nombre del producto"
+                  value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text font-semibold">Precio (S/) *</span></label>
+                  <input type="number" min="0" step="0.01" className="input input-bordered" placeholder="0.00"
+                    value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">Stock</span></label>
+                  <input type="number" min="0" className="input input-bordered" placeholder="0"
+                    value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} />
+                </div>
+              </div>
+              <div className="form-control">
+                <label className="label cursor-pointer">
+                  <span className="label-text">Producto activo (visible en POS)</span>
+                  <input type="checkbox" className="toggle toggle-primary" checked={form.active}
+                    onChange={e => setForm({...form, active: e.target.checked})} />
+                </label>
+              </div>
+            </div>
+            <div className="modal-action">
+              <button className="btn btn-ghost" onClick={closeModal}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? <span className="loading loading-spinner loading-sm"/> : <><Save size={16}/> Guardar</>}
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={closeModal}></div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Desactivar */}
+      {deleteId && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="font-bold text-lg text-warning">¿Desactivar producto?</h3>
+            <p className="py-4 text-base-content/70">El producto quedará inactivo y no aparecerá en el POS.</p>
+            <div className="modal-action">
+              <button className="btn btn-ghost" onClick={() => setDeleteId(null)}>Cancelar</button>
+              <button className="btn btn-warning" onClick={handleDelete}>Desactivar</button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setDeleteId(null)}></div>
+        </div>
+      )}
     </div>
   );
 };

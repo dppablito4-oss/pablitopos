@@ -1,64 +1,197 @@
-import React from 'react';
-import { Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Building2, Settings, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const Configuracion = () => {
+  const [config, setConfig] = useState({
+    name: '', ruc: '', address: '', phone: '', email: '', website: '',
+    footer_message: '', include_igv: true, brand_color: '#4f46e5',
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+  const [companyId, setCompanyId] = useState(null);
+
+  useEffect(() => { fetchConfig(); }, []);
+
+  const fetchConfig = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('company_profile')
+      .select('*')
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+    if (data) {
+      setCompanyId(data.id);
+      setConfig({
+        name: data.name || '',
+        ruc: data.ruc || '',
+        address: data.address || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        website: data.website || '',
+        footer_message: data.footer_message || '',
+        include_igv: data.include_igv ?? true,
+        brand_color: data.brand_color || '#4f46e5',
+      });
+    }
+    if (error && error.code !== 'PGRST116') setError(error.message);
+    setIsLoading(false);
+  };
+
+  const handleSave = async () => {
+    if (!config.name.trim()) return alert('El nombre o razón social es obligatorio.');
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    const payload = { ...config, updated_at: new Date().toISOString() };
+    let err;
+    if (companyId) {
+      const { error } = await supabase.from('company_profile').update(payload).eq('id', companyId);
+      err = error;
+    } else {
+      const { data, error } = await supabase.from('company_profile').insert([{ ...payload, is_active: true }]).select().single();
+      if (data) setCompanyId(data.id);
+      err = error;
+    }
+    setSaving(false);
+    if (err) { setError(err.message); return; }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-full">
+      <span className="loading loading-spinner loading-lg text-primary"></span>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col h-full gap-4 max-w-4xl mx-auto w-full">
+    <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Configuración del Sistema</h2>
-        <button className="btn btn-primary">
-          <Save size={20} />
-          Guardar Cambios
+        <div>
+          <h2 className="text-2xl font-bold">Configuración del Sistema</h2>
+          <p className="text-base-content/60 text-sm">Datos de tu empresa y preferencias del POS</p>
+        </div>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving
+            ? <span className="loading loading-spinner loading-sm"/>
+            : <><Save size={20}/> Guardar Cambios</>}
         </button>
       </div>
 
+      {saved && (
+        <div className="alert alert-success shadow-sm">
+          <span>✅ Configuración guardada correctamente.</span>
+        </div>
+      )}
+      {error && (
+        <div className="alert alert-error shadow-sm">
+          <AlertCircle size={18}/> <span>Error: {error}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Datos de Empresa */}
         <div className="card bg-base-100 shadow-sm">
           <div className="card-body">
-            <h3 className="card-title text-lg border-b pb-2">Datos de la Empresa</h3>
-            
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">Nombre / Razón Social</span></label>
-              <input type="text" placeholder="Ej. Pablito POS S.A.C" className="input input-bordered w-full" defaultValue="Pablito POS" />
+            <h3 className="card-title text-lg flex gap-2">
+              <Building2 size={20}/> Datos de la Empresa
+            </h3>
+            <div className="divider mt-0 mb-2"/>
+
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Nombre / Razón Social *</span></label>
+              <input type="text" className="input input-bordered" placeholder="Ej. Bodega La Esquina"
+                value={config.name} onChange={e => setConfig({...config, name: e.target.value})} />
             </div>
-            
-            <div className="form-control w-full">
-              <label className="label"><span className="label-text">RUC</span></label>
-              <input type="text" placeholder="Ej. 20123456789" className="input input-bordered w-full" defaultValue="10123456789" />
+
+            <div className="form-control">
+              <label className="label"><span className="label-text">RUC / DNI</span></label>
+              <input type="text" maxLength={11} className="input input-bordered" placeholder="Ej. 20123456789"
+                value={config.ruc} onChange={e => setConfig({...config, ruc: e.target.value.replace(/\D/g,'')})} />
             </div>
-            
-            <div className="form-control w-full">
+
+            <div className="form-control">
               <label className="label"><span className="label-text">Dirección</span></label>
-              <input type="text" placeholder="Dirección del local" className="input input-bordered w-full" />
+              <input type="text" className="input input-bordered" placeholder="Dirección del local"
+                value={config.address} onChange={e => setConfig({...config, address: e.target.value})} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="form-control">
+                <label className="label"><span className="label-text">Teléfono</span></label>
+                <input type="text" className="input input-bordered" placeholder="9XXXXXXXX"
+                  value={config.phone} onChange={e => setConfig({...config, phone: e.target.value})} />
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text">Email</span></label>
+                <input type="email" className="input input-bordered" placeholder="correo@empresa.com"
+                  value={config.email} onChange={e => setConfig({...config, email: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="form-control">
+              <label className="label"><span className="label-text">Sitio Web</span></label>
+              <input type="text" className="input input-bordered" placeholder="www.miempresa.com"
+                value={config.website} onChange={e => setConfig({...config, website: e.target.value})} />
             </div>
           </div>
         </div>
 
+        {/* Preferencias */}
         <div className="card bg-base-100 shadow-sm">
           <div className="card-body">
-            <h3 className="card-title text-lg border-b pb-2">Preferencias de Venta</h3>
-            
+            <h3 className="card-title text-lg flex gap-2">
+              <Settings size={20}/> Preferencias de Venta
+            </h3>
+            <div className="divider mt-0 mb-2"/>
+
             <div className="form-control">
               <label className="label cursor-pointer">
-                <span className="label-text">Incluir IGV (18%) en los precios</span> 
-                <input type="checkbox" className="toggle toggle-primary" defaultChecked />
-              </label>
-            </div>
-            
-            <div className="form-control">
-              <label className="label cursor-pointer">
-                <span className="label-text">Imprimir ticket automáticamente al vender</span> 
-                <input type="checkbox" className="toggle toggle-primary" defaultChecked />
+                <div>
+                  <span className="label-text font-semibold">Incluir IGV (18%) en precios</span>
+                  <p className="text-xs text-base-content/50">Si está activo, el total incluye el 18% de impuesto.</p>
+                </div>
+                <input type="checkbox" className="toggle toggle-primary" checked={config.include_igv}
+                  onChange={e => setConfig({...config, include_igv: e.target.checked})} />
               </label>
             </div>
 
-            <div className="form-control w-full mt-4">
-              <label className="label"><span className="label-text">Mensaje al pie del ticket</span></label>
-              <textarea className="textarea textarea-bordered h-24" placeholder="¡Gracias por su compra!"></textarea>
+            <div className="divider my-1"/>
+
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Color de marca</span></label>
+              <div className="flex items-center gap-3">
+                <input type="color" className="w-12 h-10 rounded cursor-pointer border border-base-300"
+                  value={config.brand_color} onChange={e => setConfig({...config, brand_color: e.target.value})} />
+                <span className="font-mono text-sm text-base-content/70">{config.brand_color}</span>
+              </div>
+            </div>
+
+            <div className="divider my-1"/>
+
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Mensaje al pie del ticket</span></label>
+              <textarea className="textarea textarea-bordered h-28"
+                placeholder="Ej: ¡Gracias por su preferencia! Vuelva pronto."
+                value={config.footer_message}
+                onChange={e => setConfig({...config, footer_message: e.target.value})} />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Info sobre tablas requeridas */}
+      {!companyId && !isLoading && (
+        <div className="alert alert-info shadow-sm text-sm">
+          <AlertCircle size={18}/>
+          <span>No se encontró un perfil de empresa. Completa los datos y guarda para crear uno nuevo.</span>
+        </div>
+      )}
     </div>
   );
 };

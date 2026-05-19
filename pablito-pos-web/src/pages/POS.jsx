@@ -13,6 +13,7 @@ const POS = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [dbError, setDbError] = useState(null);
   
   const { cart, emisionType, printFormat, lastReceipt, setEmisionType, setPrintFormat, setLastReceipt, addItem, removeItem, updateQuantity, clearCart, getTotals } = useCartStore();
   const { subtotal, igv, total, itemCount } = getTotals();
@@ -33,18 +34,27 @@ const POS = () => {
 
   const fetchProducts = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase.from('products').select('*').eq('active', true).limit(50);
-    if (!error && data && data.length > 0) {
-      setProducts(data);
+    setDbError(null);
+    const { data, error } = await supabase.from('products').select('*').eq('active', true).order('name').limit(200);
+    if (error) {
+      setDbError('No se pudo conectar a la base de datos: ' + error.message);
+      setProducts([]);
     } else {
-      setProducts([
-        { id: 1, name: 'Coca Cola 2L', price: 8.50, stock: 10 },
-        { id: 2, name: 'Galletas Oreo', price: 2.00, stock: 25 },
-        { id: 3, name: 'Agua San Mateo', price: 2.50, stock: 50 },
-        { id: 4, name: 'Inca Kola 1.5L', price: 7.00, stock: 12 },
-      ]);
+      setProducts(data || []);
     }
     setIsLoading(false);
+  };
+
+  // Obtener número correlativo de venta
+  const getNextNumber = async (series) => {
+    const { data } = await supabase
+      .from('sales')
+      .select('number')
+      .eq('series', series)
+      .order('number', { ascending: false })
+      .limit(1)
+      .single();
+    return data ? (parseInt(data.number) + 1) : 1;
   };
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -54,19 +64,32 @@ const POS = () => {
     setIsProcessing(true);
     try {
       const isBoleta = emisionType === EMISION_TYPES.BOLETA;
+      const isNota = emisionType === EMISION_TYPES.NOTA;
+      const isAdelanto = emisionType === EMISION_TYPES.ADELANTO;
+      const isCotizacion = emisionType === EMISION_TYPES.COTIZACION;
+
+      // Determinar serie y calcular número correlativo
+      const series = isBoleta ? 'B001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
+      const nextNumber = await getNextNumber(series);
+
+      // Cálculo de totales correcto (IGV incluido en precio)
+      // subtotal = base sin IGV, igv = 18% sobre base, total = subtotal + igv
+      const totalFloat = parseFloat(total);
+      const subtotalBase = isBoleta ? (totalFloat / 1.18) : totalFloat;
+      const igvAmt = isBoleta ? (totalFloat - subtotalBase) : 0;
 
       // 1. Guardar Venta
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert([{
-          series: isBoleta ? 'B001' : 'NV01',
-          number: Math.floor(Math.random() * 1000000), 
-          subtotal: parseFloat(subtotal),
-          igv: isBoleta ? parseFloat(igv) : 0,
-          total: parseFloat(total),
+          series,
+          number: nextNumber,
+          subtotal: parseFloat(subtotalBase.toFixed(2)),
+          igv: parseFloat(igvAmt.toFixed(2)),
+          total: totalFloat,
           company_id: 1,
-          is_proforma: emisionType === EMISION_TYPES.COTIZACION,
-          is_adelanto: emisionType === EMISION_TYPES.ADELANTO,
+          is_proforma: isCotizacion,
+          is_adelanto: isAdelanto,
         }])
         .select().single();
 
@@ -130,8 +153,20 @@ const POS = () => {
             </div>
           </div>
           <div className="flex-1 p-4 overflow-y-auto bg-base-200/50">
-            {isLoading ? (
+            {dbError ? (
+              <div className="flex items-center justify-center h-full p-6">
+                <div className="alert alert-error max-w-md">
+                  <AlertTriangle size={20}/>
+                  <span>{dbError}</span>
+                </div>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center h-full"><span className="loading loading-spinner text-primary"></span></div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-base-content/40 gap-2">
+                <p className="font-medium">No hay productos activos.</p>
+                <p className="text-sm">Agrega productos desde el módulo Productos.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredProducts.map((p) => (
