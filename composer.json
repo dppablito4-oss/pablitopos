@@ -1,6 +1,6 @@
 {
     "require": {
-        "greenter/greenter": "^5.0"
+        "greenter/greenter": "^4.0"
     },
     "config": {
         "allow-plugins": {
