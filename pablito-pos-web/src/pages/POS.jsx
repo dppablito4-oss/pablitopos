@@ -14,6 +14,7 @@ const POS = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
   const [dbError, setDbError] = useState(null);
+  const [company, setCompany] = useState(null);
   
   const { cart, emisionType, printFormat, lastReceipt, setEmisionType, setPrintFormat, setLastReceipt, addItem, removeItem, updateQuantity, clearCart, getTotals } = useCartStore();
   const { subtotal, igv, total, itemCount } = getTotals();
@@ -23,7 +24,17 @@ const POS = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchCompany();
   }, []);
+
+  const fetchCompany = async () => {
+    try {
+      const { data } = await supabase.from('company_profile').select('*').eq('is_active', true).limit(1).single();
+      if (data) setCompany(data);
+    } catch (e) {
+      console.error("Error loading company profile:", e);
+    }
+  };
 
   // Validar y forzar cambio si NRUS excede
   useEffect(() => {
@@ -111,7 +122,11 @@ const POS = () => {
 
       // 4. Preparar datos para imprimir y WhatsApp
       const receiptData = {
-        company: { ruc: "20123456789", razonSocial: "PABLITO POS" },
+        company: { 
+          ruc: company?.ruc || "20000000001", 
+          razonSocial: company?.name || "PABLITO POS",
+          direccion: company?.address || "AV PRINCIPAL S/N"
+        },
         cliente: { numDoc: "00000000", rznSocial: "CLIENTE VARIOS" },
         serie: saleData.series,
         correlativo: saleData.number,

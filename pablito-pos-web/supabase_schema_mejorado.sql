@@ -28,6 +28,10 @@ CREATE TABLE company_profile (
     is_active BOOLEAN DEFAULT TRUE,
     yape_qr_path TEXT,
     include_igv BOOLEAN DEFAULT TRUE,
+    sol_user TEXT DEFAULT 'MODDATOS',
+    sol_pass TEXT DEFAULT 'MODDATOS',
+    cert_pem TEXT,
+    production BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

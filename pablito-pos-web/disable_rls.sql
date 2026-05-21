@@ -43,3 +43,5 @@ BEGIN
     EXECUTE format('CREATE POLICY "auth_delete" ON %I FOR DELETE TO authenticated USING (true)', t);
   END LOOP;
 END $$;
+--
+

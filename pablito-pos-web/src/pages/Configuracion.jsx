@@ -6,6 +6,7 @@ const Configuracion = () => {
   const [config, setConfig] = useState({
     name: '', ruc: '', address: '', phone: '', email: '', website: '',
     footer_message: '', include_igv: true, brand_color: '#4f46e5',
+    sol_user: 'MODDATOS', sol_pass: 'MODDATOS', cert_pem: '', production: false
   });
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,10 @@ const Configuracion = () => {
         footer_message: data.footer_message || '',
         include_igv: data.include_igv ?? true,
         brand_color: data.brand_color || '#4f46e5',
+        sol_user: data.sol_user || 'MODDATOS',
+        sol_pass: data.sol_pass || 'MODDATOS',
+        cert_pem: data.cert_pem || '',
+        production: data.production ?? false
       });
     }
     if (error && error.code !== 'PGRST116') setError(error.message);
@@ -180,6 +185,65 @@ const Configuracion = () => {
                 placeholder="Ej: ¡Gracias por su preferencia! Vuelva pronto."
                 value={config.footer_message}
                 onChange={e => setConfig({...config, footer_message: e.target.value})} />
+            </div>
+          </div>
+        </div>
+
+        {/* Credenciales de Facturación SUNAT */}
+        <div className="card bg-base-100 shadow-sm col-span-1 md:col-span-2">
+          <div className="card-body">
+            <h3 className="card-title text-lg flex gap-2">
+              <Building2 size={20}/> Facturación Electrónica (SUNAT)
+            </h3>
+            <p className="text-xs text-base-content/50">Configura tus credenciales SOL y carga tu certificado digital para firmar los XMLs.</p>
+            <div className="divider mt-0 mb-2"/>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Usuario SOL</span></label>
+                <input type="text" className="input input-bordered" placeholder="Ej: MODDATOS"
+                  value={config.sol_user} onChange={e => setConfig({...config, sol_user: e.target.value})} />
+              </div>
+              
+              <div className="form-control">
+                <label className="label"><span className="label-text font-semibold">Clave SOL</span></label>
+                <input type="password" className="input input-bordered" placeholder="Ej: MODDATOS"
+                  value={config.sol_pass} onChange={e => setConfig({...config, sol_pass: e.target.value})} />
+              </div>
+
+              <div className="form-control">
+                <label className="label cursor-pointer h-full flex items-end pb-3">
+                  <div className="flex flex-col">
+                    <span className="label-text font-semibold">Modo Producción</span>
+                    <span className="text-xs text-base-content/50">Activar para enviar comprobantes reales</span>
+                  </div>
+                  <input type="checkbox" className="toggle toggle-secondary" checked={config.production}
+                    onChange={e => setConfig({...config, production: e.target.checked})} />
+                </label>
+              </div>
+            </div>
+
+            <div className="form-control mt-4">
+              <label className="label">
+                <span className="label-text font-semibold">Certificado Digital (PEM)</span>
+                <span className="text-xs text-primary cursor-pointer hover:underline">
+                  <input type="file" accept=".pem" className="hidden" id="cert-upload" onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        setConfig({...config, cert_pem: evt.target.result});
+                      };
+                      reader.readAsText(file);
+                    }
+                  }} />
+                  <label htmlFor="cert-upload" className="cursor-pointer">📁 Cargar archivo .pem</label>
+                </span>
+              </label>
+              <textarea className="textarea textarea-bordered font-mono text-xs h-32"
+                placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
+                value={config.cert_pem}
+                onChange={e => setConfig({...config, cert_pem: e.target.value})} />
             </div>
           </div>
         </div>

@@ -1,52 +1,75 @@
-/**
- * Servicio para conectar con la API en PHP alojada en Render (Imagen Docker: giansmar/lycet)
- */
+import { supabase } from './supabase';
 
-const SUNAT_API_URL = import.meta.env.VITE_SUNAT_API_URL || 'https://tu-api-render.onrender.com';
+const SUNAT_API_URL = import.meta.env.VITE_SUNAT_API_URL || 'https://pablitopos.onrender.com';
 
 export const generarHashSunat = async (saleData, items) => {
   try {
-    // Aquí debemos formatear los datos de la venta al formato JSON que espera la API PHP (Lycet)
-    // Este formato dependerá de la documentación exacta de giansmar/lycet
+    // 1. Obtener la configuración activa de la empresa
+    const { data: company } = await supabase
+      .from('company_profile')
+      .select('*')
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+
+    if (!company) {
+      throw new Error("No se encontró la configuración del perfil de la empresa.");
+    }
+
+    // 2. Determinar tipo de documento del cliente
+    let clienteDoc = '00000000';
+    let clienteNombre = 'CLIENTE VARIOS';
+    let clienteTipoDoc = '1';
+
+    if (saleData.client_id) {
+      const { data: client } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', saleData.client_id)
+        .single();
+      if (client) {
+        clienteDoc = client.dni || '00000000';
+        clienteNombre = client.full_name || 'CLIENTE VARIOS';
+        clienteTipoDoc = clienteDoc.length === 11 ? '6' : '1';
+      }
+    }
+
+    // 3. Convertir items del formato de base de datos a formato API
+    const itemsFormatted = items.map(item => ({
+      code: item.product_id?.toString() || 'P001',
+      name: item.description || 'PRODUCTO',
+      unit: item.unit || 'NIU',
+      quantity: parseFloat(item.quantity || 1),
+      price: parseFloat(item.unit_price || 0), // El precio con IGV
+      description: item.description || 'PRODUCTO'
+    }));
+
+    // 4. Formatear leyenda
+    const leyenda = `SON ${saleData.total.toFixed(2)} SOLES`;
+
     const payload = {
-      tipoDoc: "03", // Boleta
+      ruc: company.ruc || '20000000001',
+      razonSocial: company.name || 'EMPRESA DE PRUEBA',
+      direccion: company.address || 'AV PRINCIPAL S/N',
       serie: saleData.series,
       correlativo: saleData.number.toString(),
-      fechaEmision: new Date().toISOString(),
-      cliente: {
-        tipoDoc: "1", // DNI
-        numDoc: "00000000",
-        rznSocial: "CLIENTE VARIOS"
-      },
-      company: {
-        ruc: "20123456789",
-        razonSocial: "PABLITO POS"
-      },
-      mtoOperGravadas: saleData.subtotal,
-      mtoIGV: saleData.igv,
-      totalImpuestos: saleData.igv,
-      valorVenta: saleData.subtotal,
-      mtoImpVenta: saleData.total,
-      details: items.map(item => ({
-        codProducto: item.product_id.toString(),
-        unidad: "NIU",
-        descripcion: item.description,
-        cantidad: item.quantity,
-        mtoValorUnitario: item.unit_price,
-        mtoValorVenta: item.subtotal,
-        mtoBaseIgv: item.subtotal,
-        porcentajeIgv: 18,
-        igv: item.subtotal * 0.18,
-        tipAfeIgv: 10,
-        totalImpuestos: item.subtotal * 0.18,
-        mtoPrecioUnitario: item.unit_price * 1.18
-      }))
+      clienteDoc,
+      clienteNombre,
+      clienteTipoDoc,
+      subtotal: parseFloat(saleData.subtotal || 0),
+      igv: parseFloat(saleData.igv || 0),
+      total: parseFloat(saleData.total || 0),
+      leyenda,
+      items: itemsFormatted,
+      sol_user: company.sol_user,
+      sol_pass: company.sol_pass,
+      cert_pem: company.cert_pem,
+      production: company.production || false
     };
 
     console.log("Enviando a SUNAT API (Render):", payload);
 
-    /* Descomentar cuando la API esté en Render:
-    const response = await fetch(`${SUNAT_API_URL}/api/v1/invoice/send`, {
+    const response = await fetch(`${SUNAT_API_URL}/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -54,20 +77,14 @@ export const generarHashSunat = async (saleData, items) => {
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      throw new Error("Error en la respuesta de SUNAT API");
+    const result = await response.json();
+    console.log("Respuesta de SUNAT API:", result);
+
+    if (!result.success) {
+      throw new Error(result.error || "Error desconocido al procesar con SUNAT");
     }
 
-    const result = await response.json();
-    return result.hash; // O el campo exacto que devuelva Lycet
-    */
-
-    // MOCK para pruebas:
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve("mock_hash_sunat_12345xyz");
-      }, 1000);
-    });
+    return result.hash; // Retorna el hash real (DigestValue) de la firma
 
   } catch (error) {
     console.error("Error al comunicarse con Render/SUNAT:", error);
