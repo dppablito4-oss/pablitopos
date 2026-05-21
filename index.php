@@ -198,8 +198,12 @@ $invoice->setDetails($details)
 
 // 8. Generar XML, limpiar languageLocaleID, firmar y enviar
 try {
-    // Paso 1: Generar el XML SIN firmar usando el InvoiceBuilder
-    $xmlBuilder = new \Greenter\Xml\Builder\InvoiceBuilder();
+    // Paso 1: Generar el XML SIN firmar usando el Invoice21Builder (UBL 2.1)
+    // ============================================================
+    // IMPORTANTE: InvoiceBuilder = UBL 2.0 (OBSOLETO, SUNAT lo rechaza con error 2072)
+    //             Invoice21Builder = UBL 2.1 (REQUERIDO por SUNAT actualmente)
+    // ============================================================
+    $xmlBuilder = new \Greenter\Xml\Builder\Invoice21Builder();
     $xmlUnsigned = $xmlBuilder->build($invoice);
     
     // Paso 2: PARCHE - Quitar languageLocaleID que SUNAT Beta rechaza
