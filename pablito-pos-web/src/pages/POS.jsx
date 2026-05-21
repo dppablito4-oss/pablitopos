@@ -97,7 +97,7 @@ const POS = () => {
           subtotal: parseFloat(subtotalBase.toFixed(2)),
           igv: parseFloat(igvAmt.toFixed(2)),
           total: totalFloat,
-          company_id: 1,
+          company_id: company?.id || 1,
           is_proforma: isCotizacion,
           is_adelanto: isAdelanto,
         }])
