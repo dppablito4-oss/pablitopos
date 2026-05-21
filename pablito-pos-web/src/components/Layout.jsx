@@ -1,8 +1,10 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Package, Users, FileText, Settings, Menu, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, Package, Users, FileText, Settings, Menu, LayoutDashboard, LogOut } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 const Layout = () => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const navigation = [
     { name: 'POS (Ventas)', href: '/pos', icon: ShoppingCart },
@@ -41,18 +43,24 @@ const Layout = () => {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-base-300 mt-auto">
+        <div className="p-4 border-t border-base-300 mt-auto space-y-3">
           <div className="flex items-center gap-3">
             <div className="avatar placeholder">
-              <div className="bg-neutral text-neutral-content rounded-full w-10">
-                <span className="text-xs">ADM</span>
+              <div className="bg-primary text-primary-content rounded-full w-10">
+                <span className="text-xs font-bold">{user?.email?.substring(0, 2).toUpperCase() || 'US'}</span>
               </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold">Cajero Activo</p>
-              <p className="text-xs text-success">En línea</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{user?.email || 'Usuario'}</p>
+              <p className="text-xs text-success">● En línea</p>
             </div>
           </div>
+          <button
+            onClick={signOut}
+            className="btn btn-ghost btn-sm w-full justify-start gap-2 text-error hover:bg-error/10"
+          >
+            <LogOut size={16} /> Cerrar Sesión
+          </button>
         </div>
       </div>
 
