@@ -122,7 +122,7 @@ $client->setTipoDoc($clienteTipo)
 
 // 6. Crear la boleta electrónica
 $invoice = new Invoice();
-$invoice->setUblVersion('2.1')
+$invoice->setUblVersion('2.0')
     ->setTipoOperacion('0101')
     ->setTipoDoc('03')
     ->setSerie($serie)
@@ -136,8 +136,7 @@ $invoice->setUblVersion('2.1')
     ->setTotalImpuestos($igv)
     ->setValorVenta($subtotal)
     ->setSubTotal($total)
-    ->setMtoImpVenta($total)
-    ->setFormaPago(new \Greenter\Model\Sale\FormaPagos\FormaPagoContado());
+    ->setMtoImpVenta($total);
 
 // 7. Agregar los productos del carrito
 $details = [];
@@ -183,7 +182,11 @@ try {
         
         // El XML firmado ya está guardado en el factory interno
         $xmlContent = $see->getFactory()->getLastXml();
-        $hash = base64_encode(hash('sha256', $xmlContent, true));
+        
+        // LA SOLUCIÓN: Extraer el Hash real (DigestValue) que Greenter insertó en el XML
+        $doc = new DOMDocument();
+        $doc->loadXML($xmlContent);
+        $hash = $doc->getElementsByTagName('DigestValue')->item(0)->nodeValue;
         
         echo json_encode([
             "success" => true,
