@@ -193,6 +193,9 @@ try {
     $signer->setCertificateFromFile($certPath);
     $xmlSigned = $signer->signXml($xmlUnsigned);
     
+    // Paso 3.5: Alinear el ID de la firma con el URI esperado por Greenter UBL (GREENTER-SIGN)
+    $xmlSigned = str_replace('Id="GreenterSign"', 'Id="GREENTER-SIGN"', $xmlSigned);
+    
     // Paso 4: Enviar a SUNAT
     $name = $ruc . '-03-' . $serie . '-' . $correlativo;
     $res = $see->sendXml(get_class($invoice), $name, $xmlSigned);
