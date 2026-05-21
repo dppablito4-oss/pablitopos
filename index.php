@@ -169,16 +169,31 @@ $legend->setCode('1000')
 $invoice->setDetails($details)
     ->setLegends([$legend]);
 
-// 8. ¡Enviar a SUNAT!
+// 8. Generar XML, limpiar el atributo problemático, y enviar a SUNAT
 try {
-    $res = $see->send($invoice);
+    // Generar el XML firmado
+    $xmlContent = $see->getXmlSigned($invoice);
+    
+    // PARCHE: Quitar el atributo languageLocaleID que SUNAT Beta rechaza
+    $xmlContent = preg_replace('/ languageLocaleID="[^"]*"/', '', $xmlContent);
+    
+    // Obtener el nombre del archivo para SUNAT (ej: 20000000001-03-B001-1)
+    $name = $ruc . '-03-' . $serie . '-' . $correlativo;
+    
+    // Enviar el XML limpio a SUNAT
+    $sender = $see->getSender();
+    $res = $sender->send($name, $xmlContent);
 
     if ($res->isSuccess()) {
         $cdr = $res->getCdrResponse();
+        
+        // Calcular hash del XML para el QR
+        $hash = base64_encode(hash('sha256', $xmlContent, true));
+        
         echo json_encode([
             "success" => true,
             "message" => "SUNAT aceptó la boleta.",
-            "hash" => $res->getXmlHash(),
+            "hash" => $hash,
             "cdrCode" => $cdr->getCode(),
             "cdrDescription" => $cdr->getDescription(),
             "serie" => $serie,
@@ -199,3 +214,4 @@ try {
         "error" => "Error interno: " . $e->getMessage()
     ]);
 }
+
