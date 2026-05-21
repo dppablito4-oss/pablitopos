@@ -81,6 +81,12 @@ $igv        = floatval($input['igv'] ?? 0);
 $total      = floatval($input['total'] ?? 0);
 $leyenda    = $input['leyenda'] ?? 'SON CERO CON 00/100 SOLES';
 
+// Credenciales y Certificado Dinámicos
+$solUser    = $input['sol_user'] ?? 'MODDATOS';
+$solPass    = $input['sol_pass'] ?? 'MODDATOS';
+$certPem    = $input['cert_pem'] ?? null;
+$production = filter_var($input['production'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
 // Validar que haya items
 if (empty($items)) {
     http_response_code(400);
@@ -90,20 +96,26 @@ if (empty($items)) {
 
 // 3. Configurar conexión con SUNAT
 $see = new See();
-$see->setService(SunatEndpoints::FE_BETA);
-$see->setClaveSOL($ruc, 'MODDATOS', 'MODDATOS');
+$endpoint = $production ? SunatEndpoints::FE_PRODUCCION : SunatEndpoints::FE_BETA;
+$see->setService($endpoint);
+$see->setClaveSOL($ruc, $solUser, $solPass);
 
 // Certificado digital
-$certPath = getenv('CERT_PATH') ?: __DIR__ . '/data/certificate.pem';
-if (!file_exists($certPath)) {
-    $certPath = glob(__DIR__ . '/vendor/greenter/*/src/*/Resources/cert.pem')[0] ?? '';
+$certPath = null;
+if (!empty($certPem)) {
+    $see->setCertificate($certPem);
+} else {
+    $certPath = getenv('CERT_PATH') ?: __DIR__ . '/data/certificate.pem';
+    if (!file_exists($certPath)) {
+        $certPath = glob(__DIR__ . '/vendor/greenter/*/src/*/Resources/cert.pem')[0] ?? '';
+    }
+    if (!file_exists($certPath)) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "error" => "No se encontró el certificado digital."]);
+        exit();
+    }
+    $see->setCertificate(file_get_contents($certPath));
 }
-if (!file_exists($certPath)) {
-    http_response_code(500);
-    echo json_encode(["success" => false, "error" => "No se encontró el certificado digital."]);
-    exit();
-}
-$see->setCertificate(file_get_contents($certPath));
 
 // 4. Datos de la empresa emisora
 $address = new Address();
@@ -127,11 +139,12 @@ $client->setTipoDoc($clienteTipo)
     ->setNumDoc($clienteDoc)
     ->setRznSocial($clienteNom);
 
-// 6. Crear la boleta electrónica
+// 6. Crear la boleta/factura electrónica
+$tipoDoc = (strpos(strtoupper($serie), 'F') === 0) ? '01' : '03';
 $invoice = new Invoice();
 $invoice->setUblVersion('2.1')
     ->setTipoOperacion('0101')
-    ->setTipoDoc('03')
+    ->setTipoDoc($tipoDoc)
     ->setSerie($serie)
     ->setCorrelativo($correlativo)
     ->setFechaEmision(new DateTime())
@@ -190,14 +203,18 @@ try {
     
     // Paso 3: Firmar el XML limpio
     $signer = new SignedXmlSha256();
-    $signer->setCertificateFromFile($certPath);
+    if (!empty($certPem)) {
+        $signer->setCertificate($certPem);
+    } else {
+        $signer->setCertificateFromFile($certPath);
+    }
     $xmlSigned = $signer->signXml($xmlUnsigned);
     
     // Paso 3.5: Alinear el ID de la firma con el URI esperado por Greenter UBL (GREENTER-SIGN)
     $xmlSigned = str_replace('Id="GreenterSign"', 'Id="GREENTER-SIGN"', $xmlSigned);
     
     // Paso 4: Enviar a SUNAT
-    $name = $ruc . '-03-' . $serie . '-' . $correlativo;
+    $name = $ruc . '-' . $tipoDoc . '-' . $serie . '-' . $correlativo;
     $res = $see->sendXml(get_class($invoice), $name, $xmlSigned);
 
     if ($res->isSuccess()) {
