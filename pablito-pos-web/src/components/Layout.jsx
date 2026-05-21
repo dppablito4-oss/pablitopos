@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Users, Package, Settings, History } from 'lucide-react';
+import { ShoppingCart, Package, Users, FileText, Settings, Menu, LayoutDashboard } from 'lucide-react';
 
 const Layout = () => {
   const location = useLocation();
@@ -7,7 +7,7 @@ const Layout = () => {
   const navigation = [
     { name: 'POS (Ventas)', href: '/pos', icon: ShoppingCart },
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Historial', href: '/historial', icon: History },
+    { name: 'Historial', href: '/historial', icon: FileText },
     { name: 'Clientes', href: '/clientes', icon: Users },
     { name: 'Productos', href: '/productos', icon: Package },
     { name: 'Fiados', href: '/fiados', icon: Users },
@@ -41,7 +41,7 @@ const Layout = () => {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-base-300">
+        <div className="p-4 border-t border-base-300 mt-auto">
           <div className="flex items-center gap-3">
             <div className="avatar placeholder">
               <div className="bg-neutral text-neutral-content rounded-full w-10">
