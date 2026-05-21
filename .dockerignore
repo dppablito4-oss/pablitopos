@@ -1,0 +1,9 @@
+node_modules
+pablito-pos-web/node_modules
+pablito-pos-web/dist
+.git
+.github
+*.md
+*.sql
+.env
+.gradle
