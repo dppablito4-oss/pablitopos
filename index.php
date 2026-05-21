@@ -136,7 +136,8 @@ $invoice->setUblVersion('2.1')
     ->setTotalImpuestos($igv)
     ->setValorVenta($subtotal)
     ->setSubTotal($total)
-    ->setMtoImpVenta($total);
+    ->setMtoImpVenta($total)
+    ->setFormaPago(new \Greenter\Model\Sale\FormaPagos\FormaPagoContado());
 
 // 7. Agregar los productos del carrito
 $details = [];
