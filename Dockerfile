@@ -1,2 +1,2 @@
-FROM giansmar/lycet:latest
-EXPOSE 80
+FROM giansalex/lycet:latest
+EXPOSE 8000
