@@ -1,4 +1,8 @@
 <?php
+// Suppress warnings and deprecations from polluting the XML output
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
+ini_set('display_errors', '0');
+
 // ===================================================
 // API DE FACTURACIÓN ELECTRÓNICA - PABLITO POS
 // ===================================================
