@@ -25,8 +25,10 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # 6. Copiar el index.php (la API)
 COPY index.php .
 
-# 7. Crear carpeta data para certificados (en producción pondrás tu .pem aquí)
-RUN mkdir -p data
+# 7. Crear carpeta data y buscar el certificado de prueba dentro de vendor
+RUN mkdir -p data && \
+    CERT=$(find /var/www/html/vendor -name "cert.pem" -o -name "certificate.pem" | head -1) && \
+    if [ -n "$CERT" ]; then cp "$CERT" data/certificate.pem; fi
 
 # 8. Configurar Apache para que apunte a /var/www/html directamente
 RUN echo '<Directory /var/www/html>\n\
