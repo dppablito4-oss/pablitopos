@@ -26,6 +26,7 @@ use Greenter\Model\Sale\Invoice;
 use Greenter\Model\Sale\SaleDetail;
 use Greenter\Model\Sale\Legend;
 use Greenter\See;
+use Greenter\Ws\Services\SunatEndpoints;
 
 // =============================================
 // ENDPOINT DE HEALTH CHECK (GET /)
@@ -84,9 +85,9 @@ if (empty($items)) {
 $see = new See();
 
 // MODO: Cambiar a producción cuando tengas tu certificado real
-// Producción: See::xml_PRODUCCION_ENDPOINT
-// Beta/Pruebas: See::xml_ST_ENDPOINT
-$see->setService(See::xml_ST_ENDPOINT);
+// Producción: SunatEndpoints::FE_PRODUCCION
+// Beta/Pruebas: SunatEndpoints::FE_BETA
+$see->setService(SunatEndpoints::FE_BETA);
 
 // Clave SOL: Cambiar por tus credenciales reales en producción
 $see->setClaveSOL($ruc, 'MODDATOS', 'MODDATOS');
