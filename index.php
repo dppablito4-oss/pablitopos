@@ -196,10 +196,14 @@ try {
         ]);
     } else {
         $error = $res->getError();
+        // Obtener el XML que se intentó enviar para depuración
+        $xmlEnviado = $see->getFactory()->getLastXml();
+        
         echo json_encode([
             "success" => false,
             "error" => $error ? $error->getMessage() : "Error desconocido de SUNAT.",
-            "code" => $error ? $error->getCode() : null
+            "code" => $error ? $error->getCode() : null,
+            "xml_debug" => $xmlEnviado
         ]);
     }
 } catch (Exception $e) {
