@@ -164,29 +164,38 @@ foreach ($items as $item) {
     $details[] = $detail;
 }
 
-// SUNAT Beta tiene un bug con las leyendas (languageLocaleID)
-// En producción esto no pasa, pero para pruebas lo omitimos.
-// $legend = new Legend();
-// $legend->setCode('1000')
-//    ->setValue(strtoupper($leyenda));
+// Leyenda obligatoria para SUNAT
+$legend = new Legend();
+$legend->setCode('1000')
+    ->setValue(strtoupper($leyenda));
 
-$invoice->setDetails($details);
-//    ->setLegends([$legend]);
+$invoice->setDetails($details)
+    ->setLegends([$legend]);
 
-// 8. Enviar a SUNAT!
+// 8. Generar XML, limpiar languageLocaleID, firmar y enviar
 try {
-    // Ya no parcheamos el XML, simplemente usamos el método normal de envío.
-    $res = $see->send($invoice);
+    // Paso 1: Generar el XML SIN firmar usando el XmlBuilder
+    $xmlBuilder = new \Greenter\Builder\BuilderFactory();
+    $xmlUnsigned = $xmlBuilder->create($invoice);
+    
+    // Paso 2: PARCHE - Quitar languageLocaleID que SUNAT Beta rechaza
+    $xmlUnsigned = preg_replace('/ languageLocaleID="[^"]*"/', '', $xmlUnsigned);
+    
+    // Paso 3: Firmar el XML limpio
+    $signer = new \Greenter\XMLSecLibs\Sunat\SignedXml();
+    $signer->setCertificateFromFile($certPath);
+    $xmlSigned = $signer->signXml($xmlUnsigned);
+    
+    // Paso 4: Enviar a SUNAT
+    $name = $ruc . '-03-' . $serie . '-' . $correlativo;
+    $res = $see->sendXml(get_class($invoice), $name, $xmlSigned);
 
     if ($res->isSuccess()) {
         $cdr = $res->getCdrResponse();
         
-        // El XML firmado ya está guardado en el factory interno
-        $xmlContent = $see->getFactory()->getLastXml();
-        
-        // LA SOLUCIÓN: Extraer el Hash real (DigestValue) que Greenter insertó en el XML
+        // Extraer el Hash real (DigestValue) del XML firmado
         $doc = new DOMDocument();
-        $doc->loadXML($xmlContent);
+        $doc->loadXML($xmlSigned);
         $hash = $doc->getElementsByTagName('DigestValue')->item(0)->nodeValue;
         
         echo json_encode([
@@ -200,14 +209,10 @@ try {
         ]);
     } else {
         $error = $res->getError();
-        // Obtener el XML que se intentó enviar para depuración
-        $xmlEnviado = $see->getFactory()->getLastXml();
-        
         echo json_encode([
             "success" => false,
             "error" => $error ? $error->getMessage() : "Error desconocido de SUNAT.",
-            "code" => $error ? $error->getCode() : null,
-            "xml_debug" => $xmlEnviado
+            "code" => $error ? $error->getCode() : null
         ]);
     }
 } catch (Exception $e) {
@@ -217,4 +222,3 @@ try {
         "error" => "Error interno: " . $e->getMessage()
     ]);
 }
-
