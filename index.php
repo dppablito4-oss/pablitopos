@@ -162,31 +162,25 @@ foreach ($items as $item) {
     $details[] = $detail;
 }
 
-$legend = new Legend();
-$legend->setCode('1000')
-    ->setValue(strtoupper($leyenda));
+// SUNAT Beta tiene un bug con las leyendas (languageLocaleID)
+// En producción esto no pasa, pero para pruebas lo omitimos.
+// $legend = new Legend();
+// $legend->setCode('1000')
+//    ->setValue(strtoupper($leyenda));
 
-$invoice->setDetails($details)
-    ->setLegends([$legend]);
+$invoice->setDetails($details);
+//    ->setLegends([$legend]);
 
-// 8. Generar XML, limpiar el atributo problemático, y enviar a SUNAT
+// 8. Enviar a SUNAT!
 try {
-    // Generar el XML firmado
-    $xmlContent = $see->getXmlSigned($invoice);
-    
-    // PARCHE: Quitar el atributo languageLocaleID que SUNAT Beta rechaza
-    $xmlContent = preg_replace('/ languageLocaleID="[^"]*"/', '', $xmlContent);
-    
-    // Obtener el nombre del archivo para SUNAT (ej: 20000000001-03-B001-1)
-    $name = $ruc . '-03-' . $serie . '-' . $correlativo;
-    
-    // Enviar el XML limpio a SUNAT
-    $res = $see->sendXml(get_class($invoice), $name, $xmlContent);
+    // Ya no parcheamos el XML, simplemente usamos el método normal de envío.
+    $res = $see->send($invoice);
 
     if ($res->isSuccess()) {
         $cdr = $res->getCdrResponse();
         
-        // Calcular hash del XML para el QR
+        // El XML firmado ya está guardado en el factory interno
+        $xmlContent = $see->getFactory()->getLastXml();
         $hash = base64_encode(hash('sha256', $xmlContent, true));
         
         echo json_encode([
