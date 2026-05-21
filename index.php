@@ -128,6 +128,7 @@ $client = (new Client())
 // 6. Crear la boleta electrónica
 $invoice = (new Invoice())
     ->setUblVersion('2.1')
+    ->setTipoOperacion('0101') // Venta interna
     ->setTipoDoc('03') // 03 = Boleta de Venta Electrónica
     ->setSerie($serie)
     ->setCorrelativo($correlativo)
@@ -135,8 +136,8 @@ $invoice = (new Invoice())
     ->setTipoMoneda('PEN')
     ->setCompany($company)
     ->setClient($client)
-    ->setMntoOperGravadas($subtotal)
-    ->setMntoIGV($igv)
+    ->setMtoOperGravadas($subtotal)
+    ->setMtoIGV($igv)
     ->setTotalImpuestos($igv)
     ->setValorVenta($subtotal)
     ->setSubTotal($total)
@@ -156,13 +157,13 @@ foreach ($items as $item) {
         ->setUnidad($item['unit'] ?? 'NIU')
         ->setCantidad($qty)
         ->setDescripcion($item['description'] ?? $item['name'] ?? 'PRODUCTO')
-        ->setMntoBaseIgv($valorVenta)
+        ->setMtoBaseIgv($valorVenta)
         ->setPorcentajeIgv(18.00)
         ->setIgv(round($igvItem * $qty, 2))
         ->setTotalImpuestos(round($igvItem * $qty, 2))
         ->setTipAfeIgv('10') // Gravado - Operación Onerosa
-        ->setMntoValorVenta($valorVenta)
-        ->setMntoPrecioUnitario($precio);
+        ->setMtoValorVenta($valorVenta)
+        ->setMtoPrecioUnitario($precio);
 }
 
 $invoice->setDetails($details)
