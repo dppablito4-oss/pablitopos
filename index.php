@@ -157,6 +157,7 @@ foreach ($items as $item) {
         ->setIgv(round($igvItem * $qty, 2))
         ->setTotalImpuestos(round($igvItem * $qty, 2))
         ->setTipAfeIgv('10')
+        ->setMtoValorUnitario($baseIgv) // Precio unitario SIN IGV (Requerido para PriceAmount)
         ->setMtoValorVenta($valorVenta)
         ->setMtoPrecioUnitario($precio);
     $details[] = $detail;
