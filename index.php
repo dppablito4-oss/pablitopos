@@ -122,7 +122,7 @@ $client->setTipoDoc($clienteTipo)
 
 // 6. Crear la boleta electrónica
 $invoice = new Invoice();
-$invoice->setUblVersion('2.0')
+$invoice->setUblVersion('2.1')
     ->setTipoOperacion('0101')
     ->setTipoDoc('03')
     ->setSerie($serie)
@@ -136,7 +136,8 @@ $invoice->setUblVersion('2.0')
     ->setTotalImpuestos($igv)
     ->setValorVenta($subtotal)
     ->setSubTotal($total)
-    ->setMtoImpVenta($total);
+    ->setMtoImpVenta($total)
+    ->setFormaPago(new \Greenter\Model\Sale\FormaPagos\FormaPagoContado());
 
 // 7. Agregar los productos del carrito
 $details = [];
