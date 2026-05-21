@@ -1,10 +1,11 @@
 FROM php:8.1-apache
 
-# 1. Instalar extensiones necesarias para SUNAT (SOAP para comunicarse con el webservice)
+# 1. Instalar extensiones necesarias para SUNAT
 RUN apt-get update && apt-get install -y \
     libxml2-dev \
     git \
     unzip \
+    openssl \
     && docker-php-ext-install soap \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -25,12 +26,18 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # 6. Copiar el index.php (la API)
 COPY index.php .
 
-# 7. Crear carpeta data y buscar el certificado de prueba dentro de vendor
+# 7. Crear carpeta data y generar certificado de PRUEBA para SUNAT Beta
+#    En producción, reemplaza data/certificate.pem con tu certificado real
 RUN mkdir -p data && \
-    CERT=$(find /var/www/html/vendor -name "cert.pem" -o -name "certificate.pem" | head -1) && \
-    if [ -n "$CERT" ]; then cp "$CERT" data/certificate.pem; fi
+    openssl req -x509 -nodes -days 3650 \
+    -newkey rsa:2048 \
+    -keyout data/key.pem \
+    -out data/cert_only.pem \
+    -subj "/C=PE/ST=Lima/L=Lima/O=GRAFIPLOT VASQUEZ/CN=pablitopos" && \
+    cat data/key.pem data/cert_only.pem > data/certificate.pem && \
+    rm data/key.pem data/cert_only.pem
 
-# 8. Configurar Apache para que apunte a /var/www/html directamente
+# 8. Configurar Apache
 RUN echo '<Directory /var/www/html>\n\
     AllowOverride All\n\
     Require all granted\n\
