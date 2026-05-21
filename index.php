@@ -123,7 +123,7 @@ $company = (new Company())
 $client = (new Client())
     ->setTipoDoc($clienteTipo)
     ->setNumDoc($clienteDoc)
-    ->setRazonSocial($clienteNom);
+    ->setRznSocial($clienteNom);
 
 // 6. Crear la boleta electrónica
 $invoice = (new Invoice())
