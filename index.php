@@ -115,8 +115,15 @@ $see->setCertificate(file_get_contents($certPath));
 $company = (new Company())
     ->setRuc($ruc)
     ->setRazonSocial($razon)
+    ->setNombreComercial($razon)
     ->setAddress((new Address())
-        ->setDireccion($direccion)
+        ->setUbigueo('150101') // Lima por defecto
+        ->setDepartamento('LIMA')
+        ->setProvincia('LIMA')
+        ->setDistrito('LIMA')
+        ->setUrbanizacion('-')
+        ->setDireccion($direccion ?: 'AV PRINCIPAL S/N')
+        ->setCodLocal('0000')
     );
 
 // 5. Datos del cliente
