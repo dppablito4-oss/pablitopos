@@ -142,7 +142,7 @@ $client->setTipoDoc($clienteTipo)
 // 6. Crear la boleta/factura electrónica
 $tipoDoc = (strpos(strtoupper($serie), 'F') === 0) ? '01' : '03';
 $invoice = new Invoice();
-$invoice->setUblVersion('2.1')
+$invoice->setUblVersion('2.0')
     ->setTipoOperacion('0101')
     ->setTipoDoc($tipoDoc)
     ->setSerie($serie)
