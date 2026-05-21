@@ -84,12 +84,11 @@ const POS = () => {
       const nextNumber = await getNextNumber(series);
 
       // Cálculo de totales correcto (IGV incluido en precio)
-      // subtotal = base sin IGV, igv = 18% sobre base, total = subtotal + igv
       const totalFloat = parseFloat(total);
       const subtotalBase = isBoleta ? (totalFloat / 1.18) : totalFloat;
       const igvAmt = isBoleta ? (totalFloat - subtotalBase) : 0;
 
-      // 1. Guardar Venta
+      // 1. Guardar Venta en Supabase
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert([{
@@ -113,14 +112,23 @@ const POS = () => {
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
       if (itemsError) throw itemsError;
 
+      // 3. Llamar API SUNAT SOLO si es Boleta
       let hashSunat = null;
-      // 3. Lycet API SOLO si es Boleta
+      let sunatMsg = null;
       if (isBoleta) {
-        hashSunat = await generarHashSunat(saleData, saleItems);
-        await supabase.from('sales').update({ serial_seguridad: hashSunat }).eq('id', saleData.id);
+        try {
+          hashSunat = await generarHashSunat(saleData, saleItems);
+          if (hashSunat) {
+            await supabase.from('sales').update({ serial_seguridad: hashSunat }).eq('id', saleData.id);
+          }
+        } catch (sunatErr) {
+          console.warn("SUNAT no disponible, venta guardada sin hash:", sunatErr.message);
+          sunatMsg = sunatErr.message;
+          // La venta ya se guardó en Supabase, no bloqueamos por SUNAT
+        }
       }
 
-      // 4. Preparar datos para imprimir y WhatsApp
+      // 4. Preparar datos para imprimir
       const receiptData = {
         company: { 
           ruc: company?.ruc || "20000000001", 
@@ -131,7 +139,8 @@ const POS = () => {
         serie: saleData.series,
         correlativo: saleData.number,
         fechaEmision: saleData.datetime || new Date().toISOString(),
-        hash: hashSunat
+        hash: hashSunat,
+        sunatWarning: sunatMsg
       };
       setLastReceipt(receiptData);
 
@@ -143,7 +152,7 @@ const POS = () => {
 
     } catch (error) {
       console.error("Error procesando venta:", error);
-      alert("Hubo un error procesando la venta.");
+      alert("Error: " + (error.message || "Hubo un error procesando la venta."));
     } finally {
       setIsProcessing(false);
     }

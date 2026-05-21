@@ -81,6 +81,9 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData }) =
               <p className="text-xs mt-2 break-all w-full max-w-xs font-mono">{receiptData.hash}</p>
             </div>
           )}
+          {receiptData.sunatWarning && (
+            <p className="text-xs italic mb-2">⚠️ Firma digital pendiente</p>
+          )}
           <p className="font-bold">¡Gracias por su compra!</p>
           <p className="text-xs">Representación impresa generada por Pablito POS Web</p>
         </div>

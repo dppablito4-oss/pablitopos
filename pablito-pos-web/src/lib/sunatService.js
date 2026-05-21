@@ -3,91 +3,99 @@ import { supabase } from './supabase';
 const SUNAT_API_URL = import.meta.env.VITE_SUNAT_API_URL || 'https://pablitopos.onrender.com';
 
 export const generarHashSunat = async (saleData, items) => {
-  try {
-    // 1. Obtener la configuración activa de la empresa
-    const { data: company } = await supabase
-      .from('company_profile')
+  // 1. Obtener la configuración activa de la empresa
+  const { data: company } = await supabase
+    .from('company_profile')
+    .select('*')
+    .eq('is_active', true)
+    .limit(1)
+    .single();
+
+  if (!company) {
+    throw new Error("No se encontró el perfil de empresa en Configuración.");
+  }
+
+  // 2. Determinar tipo de documento del cliente
+  let clienteDoc = '00000000';
+  let clienteNombre = 'CLIENTE VARIOS';
+  let clienteTipoDoc = '1';
+
+  if (saleData.client_id) {
+    const { data: client } = await supabase
+      .from('clients')
       .select('*')
-      .eq('is_active', true)
-      .limit(1)
+      .eq('id', saleData.client_id)
       .single();
-
-    if (!company) {
-      throw new Error("No se encontró la configuración del perfil de la empresa.");
+    if (client) {
+      clienteDoc = client.dni || '00000000';
+      clienteNombre = client.full_name || 'CLIENTE VARIOS';
+      clienteTipoDoc = clienteDoc.length === 11 ? '6' : '1';
     }
+  }
 
-    // 2. Determinar tipo de documento del cliente
-    let clienteDoc = '00000000';
-    let clienteNombre = 'CLIENTE VARIOS';
-    let clienteTipoDoc = '1';
+  // 3. Convertir items del formato de base de datos a formato API
+  const itemsFormatted = items.map(item => ({
+    code: item.product_id?.toString() || 'P001',
+    name: item.description || 'PRODUCTO',
+    unit: item.unit || 'NIU',
+    quantity: parseFloat(item.quantity || 1),
+    price: parseFloat(item.unit_price || 0),
+    description: item.description || 'PRODUCTO'
+  }));
 
-    if (saleData.client_id) {
-      const { data: client } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', saleData.client_id)
-        .single();
-      if (client) {
-        clienteDoc = client.dni || '00000000';
-        clienteNombre = client.full_name || 'CLIENTE VARIOS';
-        clienteTipoDoc = clienteDoc.length === 11 ? '6' : '1';
-      }
-    }
+  // 4. Formatear leyenda
+  const leyenda = `SON ${parseFloat(saleData.total).toFixed(2)} SOLES`;
 
-    // 3. Convertir items del formato de base de datos a formato API
-    const itemsFormatted = items.map(item => ({
-      code: item.product_id?.toString() || 'P001',
-      name: item.description || 'PRODUCTO',
-      unit: item.unit || 'NIU',
-      quantity: parseFloat(item.quantity || 1),
-      price: parseFloat(item.unit_price || 0), // El precio con IGV
-      description: item.description || 'PRODUCTO'
-    }));
+  const payload = {
+    ruc: company.ruc || '20000000001',
+    razonSocial: company.name || 'EMPRESA DE PRUEBA',
+    direccion: company.address || 'AV PRINCIPAL S/N',
+    serie: saleData.series,
+    correlativo: saleData.number.toString(),
+    clienteDoc,
+    clienteNombre,
+    clienteTipoDoc,
+    subtotal: parseFloat(saleData.subtotal || 0),
+    igv: parseFloat(saleData.igv || 0),
+    total: parseFloat(saleData.total || 0),
+    leyenda,
+    items: itemsFormatted,
+    sol_user: company.sol_user || 'MODDATOS',
+    sol_pass: company.sol_pass || 'MODDATOS',
+    cert_pem: company.cert_pem || null,
+    production: company.production || false
+  };
 
-    // 4. Formatear leyenda
-    const leyenda = `SON ${saleData.total.toFixed(2)} SOLES`;
+  console.log("📡 Enviando a SUNAT API:", SUNAT_API_URL);
 
-    const payload = {
-      ruc: company.ruc || '20000000001',
-      razonSocial: company.name || 'EMPRESA DE PRUEBA',
-      direccion: company.address || 'AV PRINCIPAL S/N',
-      serie: saleData.series,
-      correlativo: saleData.number.toString(),
-      clienteDoc,
-      clienteNombre,
-      clienteTipoDoc,
-      subtotal: parseFloat(saleData.subtotal || 0),
-      igv: parseFloat(saleData.igv || 0),
-      total: parseFloat(saleData.total || 0),
-      leyenda,
-      items: itemsFormatted,
-      sol_user: company.sol_user,
-      sol_pass: company.sol_pass,
-      cert_pem: company.cert_pem,
-      production: company.production || false
-    };
+  // Fetch con timeout de 30 segundos (Render puede hacer cold-start)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-    console.log("Enviando a SUNAT API (Render):", payload);
-
+  try {
     const response = await fetch(`${SUNAT_API_URL}/`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     const result = await response.json();
-    console.log("Respuesta de SUNAT API:", result);
+    console.log("📬 Respuesta SUNAT API:", result);
 
     if (!result.success) {
-      throw new Error(result.error || "Error desconocido al procesar con SUNAT");
+      throw new Error(result.error || "SUNAT rechazó el documento.");
     }
 
-    return result.hash; // Retorna el hash real (DigestValue) de la firma
+    // Retorna el hash (DigestValue de la firma XML)
+    return result.hash || null;
 
-  } catch (error) {
-    console.error("Error al comunicarse con Render/SUNAT:", error);
-    throw error;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error("Timeout: El servidor de facturación no respondió a tiempo. La venta se guardó sin firma digital.");
+    }
+    throw err;
   }
 };
