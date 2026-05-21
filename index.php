@@ -71,7 +71,7 @@ $ruc        = $input['ruc'] ?? '20000000001';
 $razon      = $input['razonSocial'] ?? 'EMPRESA DE PRUEBA';
 $direccion  = $input['direccion'] ?? 'AV PRINCIPAL S/N';
 $serie      = $input['serie'] ?? 'B001';
-$correlativo = $input['correlativo'] ?? '1';
+$correlativo = str_pad($input['correlativo'] ?? '1', 8, '0', STR_PAD_LEFT);
 $clienteDoc = $input['clienteDoc'] ?? '00000000';
 $clienteNom = $input['clienteNombre'] ?? 'CLIENTE VARIOS';
 $clienteTipo = $input['clienteTipoDoc'] ?? '1'; // 1=DNI, 6=RUC
