@@ -28,6 +28,13 @@ use Greenter\Model\Sale\Legend;
 use Greenter\See;
 use Greenter\Ws\Services\SunatEndpoints;
 
+class SignedXmlSha256 extends \Greenter\XMLSecLibs\Sunat\SignedXml
+{
+    protected $keyAlgorithm = \Greenter\XMLSecLibs\XMLSecurityKey::RSA_SHA256;
+    protected $digestAlgorithm = \Greenter\XMLSecLibs\XMLSecurityDSig::SHA256;
+}
+
+
 // =============================================
 // ENDPOINT DE HEALTH CHECK (GET /)
 // =============================================
@@ -182,7 +189,7 @@ try {
     $xmlUnsigned = preg_replace('/ languageLocaleID="[^"]*"/', '', $xmlUnsigned);
     
     // Paso 3: Firmar el XML limpio
-    $signer = new \Greenter\XMLSecLibs\Sunat\SignedXml();
+    $signer = new SignedXmlSha256();
     $signer->setCertificateFromFile($certPath);
     $xmlSigned = $signer->signXml($xmlUnsigned);
     
@@ -212,7 +219,8 @@ try {
         echo json_encode([
             "success" => false,
             "error" => $error ? $error->getMessage() : "Error desconocido de SUNAT.",
-            "code" => $error ? $error->getCode() : null
+            "code" => $error ? $error->getCode() : null,
+            "xml_debug" => $xmlSigned ?? 'no xml'
         ]);
     }
 } catch (Exception $e) {
