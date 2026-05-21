@@ -181,8 +181,7 @@ try {
     $name = $ruc . '-03-' . $serie . '-' . $correlativo;
     
     // Enviar el XML limpio a SUNAT
-    $sender = $see->getSender();
-    $res = $sender->send($name, $xmlContent);
+    $res = $see->sendXml(get_class($invoice), $name, $xmlContent);
 
     if ($res->isSuccess()) {
         $cdr = $res->getCdrResponse();
