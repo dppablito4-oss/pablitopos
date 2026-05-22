@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logAudit } from '../services/auditService';
 
 const EMPTY_FORM = { dni: '', full_name: '', phone: '', email: '', address: '' };
 
@@ -54,6 +55,7 @@ const Clientes = () => {
     setSaving(false);
     if (err) { alert('Error: ' + err.message); return; }
     closeModal();
+    logAudit(editingId ? 'CLIENTE_EDITADO' : 'CLIENTE_CREADO', payload.full_name);
     fetchClientes();
   };
 
@@ -61,6 +63,7 @@ const Clientes = () => {
     if (!deleteId) return;
     const { error } = await supabase.from('clients').delete().eq('id', deleteId);
     if (error) alert('Error al eliminar: ' + error.message);
+    else logAudit('CLIENTE_ELIMINADO', `ID: ${deleteId}`);
     setDeleteId(null);
     fetchClientes();
   };

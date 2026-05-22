@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 
-const IGV_RATE = 0.18;
-
 export const EMISION_TYPES = {
   BOLETA: 'Boleta Electrónica',
   NOTA: 'Nota de Venta Interna',
@@ -55,13 +53,19 @@ export const useCartStore = create((set, get) => ({
   clearCart: () => set({ cart: [], emisionType: EMISION_TYPES.BOLETA }),
 
   getTotals: () => {
-    const { cart } = get();
-    const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
-    const igv = subtotal * IGV_RATE;
-    const total = subtotal + igv;
+    const { cart, emisionType } = get();
+    const sumaPrecio = cart.reduce((sum, item) => sum + item.subtotal, 0);
+    const isBoleta = emisionType === EMISION_TYPES.BOLETA;
     
+    // Los precios YA incluyen IGV.
+    // Para Boleta: descomponemos en base imponible + IGV
+    // Para otros tipos: no aplica IGV
+    const total = sumaPrecio;
+    const baseImponible = isBoleta ? parseFloat((sumaPrecio / 1.18).toFixed(2)) : sumaPrecio;
+    const igv = isBoleta ? parseFloat((sumaPrecio - baseImponible).toFixed(2)) : 0;
+
     return {
-      subtotal: subtotal.toFixed(2),
+      subtotal: baseImponible.toFixed(2),
       igv: igv.toFixed(2),
       total: total.toFixed(2),
       itemCount: cart.reduce((count, item) => count + item.quantity, 0)

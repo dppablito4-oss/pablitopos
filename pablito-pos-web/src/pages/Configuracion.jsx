@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Building2, Settings, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logAudit } from '../services/auditService';
 
 const Configuracion = () => {
   const [config, setConfig] = useState({
@@ -64,6 +65,7 @@ const Configuracion = () => {
     setSaving(false);
     if (err) { setError(err.message); return; }
     setSaved(true);
+    logAudit('CONFIG_GUARDADA', config.name);
     setTimeout(() => setSaved(false), 3000);
   };
 

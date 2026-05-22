@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, Receipt, Minus, Printer, AlertTriangle, Send } from 'lucide-react';
+import { Search, Plus, Trash2, Receipt, Minus, Printer, AlertTriangle, Send, X, UserSearch } from 'lucide-react';
 import { useCartStore, EMISION_TYPES, PRINT_FORMATS } from '../store/useCartStore';
 import { supabase } from '../lib/supabase';
 import { generarHashSunat } from '../lib/sunatService';
 import { useNrusValve } from '../hooks/useNrusValve';
 import PrintReceipt from '../components/PrintReceipt';
 import { getWhatsAppLink } from '../lib/whatsapp';
+import { logAudit } from '../services/auditService';
 
 const POS = () => {
   const [products, setProducts] = useState([]);
@@ -15,6 +16,10 @@ const POS = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [dbError, setDbError] = useState(null);
   const [company, setCompany] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
   
   const { cart, emisionType, printFormat, lastReceipt, setEmisionType, setPrintFormat, setLastReceipt, addItem, removeItem, updateQuantity, clearCart, getTotals } = useCartStore();
   const { subtotal, igv, total, itemCount } = getTotals();
@@ -25,6 +30,7 @@ const POS = () => {
   useEffect(() => {
     fetchProducts();
     fetchCompany();
+    fetchClients();
   }, []);
 
   const fetchCompany = async () => {
@@ -32,8 +38,13 @@ const POS = () => {
       const { data } = await supabase.from('company_profile').select('*').eq('is_active', true).limit(1).single();
       if (data) setCompany(data);
     } catch (e) {
-      console.error("Error loading company profile:", e);
+      console.error("Error loading company:", e);
     }
+  };
+
+  const fetchClients = async () => {
+    const { data } = await supabase.from('clients').select('id, dni, full_name, phone').order('full_name');
+    if (data) setClients(data);
   };
 
   // Validar y forzar cambio si NRUS excede
@@ -83,10 +94,10 @@ const POS = () => {
       const series = isBoleta ? 'B001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
       const nextNumber = await getNextNumber(series);
 
-      // Cálculo de totales correcto (IGV incluido en precio)
+      // Totales ya calculados correctamente en el store
       const totalFloat = parseFloat(total);
-      const subtotalBase = isBoleta ? (totalFloat / 1.18) : totalFloat;
-      const igvAmt = isBoleta ? (totalFloat - subtotalBase) : 0;
+      const subtotalFloat = parseFloat(subtotal);
+      const igvFloat = parseFloat(igv);
 
       // 1. Guardar Venta en Supabase
       const { data: saleData, error: saleError } = await supabase
@@ -94,9 +105,10 @@ const POS = () => {
         .insert([{
           series,
           number: nextNumber,
-          subtotal: parseFloat(subtotalBase.toFixed(2)),
-          igv: parseFloat(igvAmt.toFixed(2)),
+          subtotal: subtotalFloat,
+          igv: igvFloat,
           total: totalFloat,
+          client_id: selectedClient?.id || null,
           company_id: company?.id || 1,
           is_proforma: isCotizacion,
           is_adelanto: isAdelanto,
@@ -111,6 +123,16 @@ const POS = () => {
       }));
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
       if (itemsError) throw itemsError;
+
+      // 3. Descontar stock de cada producto vendido
+      for (const item of cart) {
+        const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+        if (prod) {
+          await supabase.from('products').update({ 
+            stock: Math.max(0, (prod.stock || 0) - item.quantity) 
+          }).eq('id', item.id);
+        }
+      }
 
       // 3. Llamar API SUNAT SOLO si es Boleta
       let hashSunat = null;
@@ -135,7 +157,9 @@ const POS = () => {
           razonSocial: company?.name || "PABLITO POS",
           direccion: company?.address || "AV PRINCIPAL S/N"
         },
-        cliente: { numDoc: "00000000", rznSocial: "CLIENTE VARIOS" },
+        cliente: selectedClient
+          ? { numDoc: selectedClient.dni || "00000000", rznSocial: selectedClient.full_name }
+          : { numDoc: "00000000", rznSocial: "CLIENTE VARIOS" },
         serie: saleData.series,
         correlativo: saleData.number,
         fechaEmision: saleData.datetime || new Date().toISOString(),
@@ -143,11 +167,14 @@ const POS = () => {
         sunatWarning: sunatMsg
       };
       setLastReceipt(receiptData);
+      logAudit('VENTA', `${series}-${nextNumber} | S/${totalFloat} | ${selectedClient?.full_name || 'VARIOS'}`);
 
       // Esperar un render tick para que el PrintReceipt exista en el DOM
       setTimeout(() => {
         window.print();
         clearCart();
+        setSelectedClient(null);
+        setClientSearch('');
       }, 500);
 
     } catch (error) {
@@ -258,6 +285,68 @@ const POS = () => {
                   <option value={PRINT_FORMATS.TICKET}>Ticket 80mm</option>
                   <option value={PRINT_FORMATS.A4}>Formato A4</option>
                 </select>
+              </div>
+
+              {/* Selector de Cliente */}
+              <div className="relative">
+                <label className="text-xs text-base-content/60 font-semibold">Cliente</label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <UserSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-base-content/40" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Buscar cliente..."
+                      value={clientSearch}
+                      onChange={(e) => {
+                        setClientSearch(e.target.value);
+                        setShowClientDropdown(true);
+                        if (!e.target.value) setSelectedClient(null);
+                      }}
+                      onFocus={() => setShowClientDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                      className="input input-bordered input-sm w-full pl-8"
+                    />
+                    {showClientDropdown && clientSearch && (
+                      <div className="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                        {clients
+                          .filter(c =>
+                            c.full_name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                            c.dni?.includes(clientSearch)
+                          )
+                          .slice(0, 8)
+                          .map(c => (
+                            <button
+                              key={c.id}
+                              className="w-full text-left px-3 py-2 hover:bg-base-200 text-sm flex justify-between"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setSelectedClient(c);
+                                setClientSearch(c.full_name);
+                                setShowClientDropdown(false);
+                              }}
+                            >
+                              <span className="font-medium truncate">{c.full_name}</span>
+                              <span className="text-base-content/50 font-mono text-xs ml-2">{c.dni || '—'}</span>
+                            </button>
+                          ))}
+                        {clients.filter(c =>
+                          c.full_name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                          c.dni?.includes(clientSearch)
+                        ).length === 0 && (
+                          <p className="text-sm text-base-content/40 text-center py-2">Sin resultados</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedClient && (
+                    <button className="btn btn-sm btn-ghost text-error" onClick={() => { setSelectedClient(null); setClientSearch(''); }}>
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {selectedClient && (
+                  <p className="text-xs text-success mt-1">✓ {selectedClient.full_name} — {selectedClient.dni || 'Sin DNI'}</p>
+                )}
               </div>
 
               {/* Input WhatsApp */}
