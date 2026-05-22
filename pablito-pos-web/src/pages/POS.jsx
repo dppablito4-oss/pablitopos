@@ -197,7 +197,7 @@ const POS = () => {
       
       <div className="h-full flex flex-col md:flex-row gap-6 no-print">
         {/* PANEL IZQUIERDO: CATÁLOGO */}
-        <div className="flex-1 flex flex-col bg-base-100 rounded-xl shadow-sm border border-base-200 overflow-hidden">
+        <div className="flex-1 flex flex-col glass-card overflow-hidden">
           <div className="p-4 border-b border-base-200 flex gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
@@ -222,7 +222,7 @@ const POS = () => {
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredProducts.map((p) => (
-                  <div key={p.id} onClick={() => addItem(p)} className="card bg-base-100 shadow-sm hover:shadow-md cursor-pointer border border-base-200 hover:border-primary">
+                  <div key={p.id} onClick={() => addItem(p)} className="glass-card hover:border-primary cursor-pointer hover:shadow-lg transition-all">
                     <div className="card-body p-4 items-center text-center">
                       <h2 className="card-title text-sm line-clamp-2">{p.name}</h2>
                       <p className="text-lg font-bold text-primary">S/ {p.price.toFixed(2)}</p>
@@ -236,7 +236,7 @@ const POS = () => {
 
         {/* PANEL DERECHO: CARRITO */}
         <div className="w-full md:w-96 flex flex-col gap-4">
-          <div className="bg-base-100 rounded-xl shadow-sm border border-base-200 flex flex-col overflow-hidden h-[50%]">
+          <div className="glass-card flex flex-col overflow-hidden h-[50%]">
             <div className="p-4 border-b border-base-200 bg-base-200/30 flex justify-between">
               <h2 className="font-bold text-lg">Carrito</h2>
               <span className="badge badge-primary">{itemCount} items</span>
@@ -262,7 +262,7 @@ const POS = () => {
           </div>
 
           {/* PANEL CONFIGURACIÓN Y TOTALES */}
-          <div className="bg-base-100 rounded-xl shadow-sm border border-base-200 flex flex-col overflow-hidden h-[50%] flex-shrink-0">
+          <div className="glass-card flex flex-col overflow-hidden h-[50%] flex-shrink-0">
             <div className="p-4 flex-1 overflow-y-auto space-y-4">
               
               {/* NRUS Warning */}

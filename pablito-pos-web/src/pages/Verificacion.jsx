@@ -82,7 +82,7 @@ const Verificacion = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)' }}>
+        style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
         <div className="text-center">
           <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: '#6366f1' }} />
           <p style={{ color: '#94a3b8' }}>Verificando comprobante...</p>
@@ -95,7 +95,7 @@ const Verificacion = () => {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)' }}>
+        style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
         <div className="w-full max-w-md text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-6"
             style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid rgba(239, 68, 68, 0.3)' }}>
@@ -117,7 +117,7 @@ const Verificacion = () => {
   // ====== COMPROBANTE VERIFICADO ======
   return (
     <div className="min-h-screen p-4 pb-12"
-      style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
+      style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 50%, #11111b 100%)' }}>
       
       <div className="max-w-lg mx-auto">
         {/* Status badge */}
@@ -132,7 +132,7 @@ const Verificacion = () => {
         {/* Receipt card */}
         <div className="rounded-2xl overflow-hidden"
           style={{
-            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
+            background: 'linear-gradient(180deg, rgba(30, 30, 46, 0.9) 0%, rgba(24, 24, 37, 0.95) 100%)',
             border: '1px solid rgba(148, 163, 184, 0.1)',
             boxShadow: '0 25px 60px rgba(0, 0, 0, 0.4)',
           }}>

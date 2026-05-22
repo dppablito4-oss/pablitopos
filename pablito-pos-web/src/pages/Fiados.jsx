@@ -162,7 +162,7 @@ const Fiados = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-base-100 p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-3">
+      <div className="glass-card p-4 flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
           <input
@@ -185,7 +185,7 @@ const Fiados = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-base-100 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
+      <div className="glass-card flex-1 overflow-hidden flex flex-col">
         {error && <div className="alert alert-error m-4"><span>Error: {error}</span></div>}
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">

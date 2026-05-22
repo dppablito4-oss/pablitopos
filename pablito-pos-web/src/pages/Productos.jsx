@@ -98,7 +98,7 @@ const Productos = () => {
       </div>
 
       {/* Search */}
-      <div className="bg-base-100 p-4 rounded-xl shadow-sm">
+      <div className="glass-card p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
           <input
@@ -112,7 +112,7 @@ const Productos = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-base-100 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
+      <div className="glass-card flex-1 overflow-hidden flex flex-col">
         {error && (
           <div className="alert alert-error m-4">
             <span>Error de conexión: {error}</span>

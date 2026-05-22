@@ -124,7 +124,7 @@ const Dashboard = () => {
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="card bg-base-100 shadow-sm border border-base-200">
+        <div className="glass-card">
           <div className="card-body p-5">
             <div className="flex justify-between items-start">
               <div>
@@ -141,7 +141,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card bg-base-100 shadow-sm border border-base-200">
+        <div className="glass-card">
           <div className="card-body p-5">
             <div className="flex justify-between items-start">
               <div>
@@ -158,7 +158,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card bg-base-100 shadow-sm border border-base-200">
+        <div className="glass-card">
           <div className="card-body p-5">
             <div className="flex justify-between items-start">
               <div>
@@ -173,7 +173,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="card bg-base-100 shadow-sm border border-base-200">
+        <div className="glass-card">
           <div className="card-body p-5">
             <div className="flex justify-between items-start">
               <div>
@@ -193,7 +193,7 @@ const Dashboard = () => {
       <div className={`grid gap-4 ${monthlyLimit ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
         {/* Gauge mensual — solo si el régimen tiene límite */}
         {monthlyLimit && (
-        <div className="card bg-base-100 shadow-sm border border-base-200">
+        <div className="glass-card">
           <div className="card-body">
             <h3 className="font-bold text-lg">Control {regimeConfig.name} Mensual</h3>
             <p className="text-base-content/60 text-sm mb-3">Límite: S/ {monthlyLimit.toLocaleString()}</p>
@@ -217,7 +217,7 @@ const Dashboard = () => {
         )}
 
         {/* Top Productos */}
-        <div className="card bg-base-100 shadow-sm border border-base-200">
+        <div className="glass-card">
           <div className="card-body">
             <h3 className="font-bold text-lg">Top Productos Recientes</h3>
             <p className="text-base-content/60 text-sm mb-3">Por monto vendido</p>

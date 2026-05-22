@@ -36,7 +36,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0f172a 100%)' }}>
+      style={{ background: 'linear-gradient(135deg, #11111b 0%, #181825 40%, #11111b 100%)' }}>
       
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -101,7 +101,7 @@ const Login = () => {
         {/* Login card */}
         <div className="rounded-2xl border overflow-hidden"
           style={{ 
-            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+            background: 'linear-gradient(180deg, rgba(30, 30, 46, 0.8) 0%, rgba(24, 24, 37, 0.9) 100%)',
             borderColor: 'rgba(148, 163, 184, 0.1)',
             backdropFilter: 'blur(20px)',
             boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
@@ -148,7 +148,7 @@ const Login = () => {
                     autoComplete="email"
                     className="w-full h-12 pl-12 pr-4 rounded-xl text-sm outline-none transition-all duration-200"
                     style={{
-                      background: 'rgba(15, 23, 42, 0.6)',
+                      background: 'rgba(17, 17, 27, 0.6)',
                       border: '1px solid rgba(148, 163, 184, 0.15)',
                       color: '#e2e8f0',
                     }}
@@ -181,7 +181,7 @@ const Login = () => {
                     autoComplete="current-password"
                     className="w-full h-12 pl-12 pr-12 rounded-xl text-sm outline-none transition-all duration-200"
                     style={{
-                      background: 'rgba(15, 23, 42, 0.6)',
+                      background: 'rgba(17, 17, 27, 0.6)',
                       border: '1px solid rgba(148, 163, 184, 0.15)',
                       color: '#e2e8f0',
                     }}

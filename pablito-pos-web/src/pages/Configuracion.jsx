@@ -109,7 +109,7 @@ const Configuracion = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Datos de Empresa */}
-        <div className="card bg-base-100 shadow-sm">
+        <div className="glass-card">
           <div className="card-body">
             <h3 className="card-title text-lg flex gap-2">
               <Building2 size={20}/> Datos de la Empresa
@@ -175,7 +175,7 @@ const Configuracion = () => {
         </div>
 
         {/* Preferencias */}
-        <div className="card bg-base-100 shadow-sm">
+        <div className="glass-card">
           <div className="card-body">
             <h3 className="card-title text-lg flex gap-2">
               <Settings size={20}/> Preferencias de Venta
@@ -217,7 +217,7 @@ const Configuracion = () => {
         </div>
 
         {/* Credenciales de Facturación SUNAT */}
-        <div className="card bg-base-100 shadow-sm col-span-1 md:col-span-2">
+        <div className="glass-card col-span-1 md:col-span-2">
           <div className="card-body">
             <h3 className="card-title text-lg flex gap-2">
               <Building2 size={20}/> Facturación Electrónica (SUNAT)
