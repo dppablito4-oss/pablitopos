@@ -42,7 +42,9 @@ const Dashboard = () => {
           .gte('datetime', ayerStart.toISOString())
           .lte('datetime', ayerEnd.toISOString()),
         supabase.from('fiados').select('total_pendiente').eq('status', 'pendiente'),
-        supabase.from('sale_items').select('description, quantity, subtotal')
+        supabase.from('sale_items').select('description, quantity, subtotal, created_at')
+          .gte('created_at', hoyStart.toISOString())
+          .lte('created_at', hoyEnd.toISOString())
           .order('created_at', { ascending: false }).limit(500),
       ]);
 

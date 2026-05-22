@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Eye, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, FileText, Eye, RefreshCw, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const FILTER_TYPES = [
@@ -17,8 +17,14 @@ const Historial = () => {
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
+  const [company, setCompany] = useState(null);
 
-  useEffect(() => { fetchVentas(); }, []);
+  useEffect(() => { fetchVentas(); fetchCompany(); }, []);
+
+  const fetchCompany = async () => {
+    const { data } = await supabase.from('company_profile').select('*').eq('is_active', true).limit(1).single();
+    if (data) setCompany(data);
+  };
 
   const fetchVentas = async () => {
     setIsLoading(true);
@@ -72,6 +78,40 @@ const Historial = () => {
       return new Date(v.datetime).toDateString() === hoy && !v.is_proforma;
     })
     .reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+
+  const handleReprint = async (v) => {
+    let items = itemsCache[v.id];
+    if (!items) {
+      const { data } = await supabase.from('sale_items').select('*').eq('sale_id', v.id);
+      items = data || [];
+      setItemsCache(prev => ({ ...prev, [v.id]: items }));
+    }
+    const tipo = v.series?.startsWith('B') ? 'BOLETA ELECTR\u00d3NICA' : v.is_proforma ? 'PROFORMA' : 'NOTA DE VENTA';
+    const html = `<html><head><title>${v.series}-${v.number}</title>
+      <style>body{font-family:monospace;max-width:320px;margin:auto;padding:20px;font-size:12px}
+      table{width:100%;border-collapse:collapse}td,th{padding:3px;text-align:left;border-bottom:1px solid #ddd}
+      .r{text-align:right}.c{text-align:center}.b{font-weight:bold}h2{margin:0}hr{border:1px dashed #999}</style>
+      </head><body>
+      <div class="c"><h2>${company?.name || 'PABLITO POS'}</h2>
+      <p>RUC: ${company?.ruc || '\u2014'}</p>
+      <p>${company?.address || ''}</p>
+      <p class="b">${tipo}</p>
+      <p class="b">${v.series}-${String(v.number).padStart(6,'0')}</p>
+      <p>${new Date(v.datetime).toLocaleString('es-PE')}</p></div><hr>
+      ${v.clients?.full_name ? `<p><b>Cliente:</b> ${v.clients.full_name}</p><p><b>Doc:</b> ${v.clients.dni||'\u2014'}</p>` : ''}
+      <table><tr><th>Cant</th><th>Descripci\u00f3n</th><th class="r">P.U.</th><th class="r">Total</th></tr>
+      ${items.map(i=>`<tr><td>${i.quantity}</td><td>${i.description}</td><td class="r">${parseFloat(i.unit_price).toFixed(2)}</td><td class="r">${parseFloat(i.subtotal).toFixed(2)}</td></tr>`).join('')}
+      </table><hr>
+      <p class="r">Subtotal: S/ ${parseFloat(v.subtotal).toFixed(2)}</p>
+      <p class="r">IGV: S/ ${parseFloat(v.igv).toFixed(2)}</p>
+      <p class="r b" style="font-size:1.3em">TOTAL: S/ ${parseFloat(v.total).toFixed(2)}</p>
+      ${v.serial_seguridad ? `<p class="c" style="font-size:0.7em">Hash: ${v.serial_seguridad}</p>`:''}
+      <p class="c">\u00a1Gracias por su compra!</p>
+      <script>window.onload=()=>window.print();</script></body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+  };
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -144,10 +184,15 @@ const Historial = () => {
                       <td>{getTipoBadge(v)}</td>
                       <td className="text-right font-bold text-primary">S/ {parseFloat(v.total).toFixed(2)}</td>
                       <td>
-                        <button className="btn btn-sm btn-ghost" onClick={() => toggleExpand(v.id)}>
-                          {expandedId === v.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                          <Eye size={16}/>
-                        </button>
+                        <div className="flex gap-1">
+                          <button className="btn btn-sm btn-ghost" onClick={() => toggleExpand(v.id)}>
+                            {expandedId === v.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                            <Eye size={16}/>
+                          </button>
+                          <button className="btn btn-sm btn-ghost text-info" onClick={() => handleReprint(v)} title="Reimprimir">
+                            <Printer size={16}/>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                     {expandedId === v.id && (

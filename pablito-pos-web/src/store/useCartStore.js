@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export const EMISION_TYPES = {
   BOLETA: 'Boleta Electrónica',
@@ -12,7 +13,7 @@ export const PRINT_FORMATS = {
   A4: 'A4'
 };
 
-export const useCartStore = create((set, get) => ({
+export const useCartStore = create(persist((set, get) => ({
   cart: [],
   emisionType: EMISION_TYPES.BOLETA,
   printFormat: PRINT_FORMATS.TICKET,
@@ -71,4 +72,7 @@ export const useCartStore = create((set, get) => ({
       itemCount: cart.reduce((count, item) => count + item.quantity, 0)
     };
   }
+}), {
+  name: 'pablito-cart',
+  partialize: (state) => ({ cart: state.cart, emisionType: state.emisionType, printFormat: state.printFormat }),
 }));

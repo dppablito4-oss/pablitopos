@@ -20,6 +20,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData }) =
         <div className="text-center mb-6">
           <h1 className="font-bold text-2xl uppercase">{receiptData.company.razonSocial}</h1>
           <p>RUC: {receiptData.company.ruc}</p>
+          <p className="text-sm">{receiptData.company.direccion}</p>
           <p className="mt-2 font-bold uppercase">{emisionType}</p>
           <p>{receiptData.serie}-{receiptData.correlativo}</p>
           <p className="text-sm mt-1">{new Date(receiptData.fechaEmision).toLocaleString()}</p>
