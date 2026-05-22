@@ -41,11 +41,12 @@ const montoEnLetras = (monto) => {
 // === Línea punteada reutilizable ===
 const Dashed = () => <div style={{ borderBottom: '1px dashed #000', margin: '6px 0' }} />;
 
-const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData }) => {
+const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, regimeConfig }) => {
   if (!receiptData) return null;
 
   const isTicket = printFormat === 'TICKET';
-  const isBoleta = emisionType === 'Boleta Electrónica';
+  const isBoleta = emisionType === 'Boleta Electrónica' || emisionType === 'Factura Electrónica';
+  const legalText = regimeConfig?.legalText || 'Sujeto al Nuevo Régimen Único Simplificado - NRUS';
   const correlativo8 = String(receiptData.correlativo).padStart(8, '0');
   const fecha = new Date(receiptData.fechaEmision);
   const fechaStr = fecha.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -147,8 +148,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData }) =
 
           {/* PIE LEGAL */}
           <div style={{ textAlign: 'center', fontSize: '8px', lineHeight: '1.3' }}>
-            <p style={{ margin: '0' }}>Sujeto al Nuevo Régimen Único</p>
-            <p style={{ margin: '0' }}>Simplificado - NRUS</p>
+            <p style={{ margin: '0' }}>{legalText}</p>
             <p style={{ margin: '4px 0 0' }}>Representación impresa de la</p>
             <p style={{ margin: '0' }}>{isBoleta ? 'Boleta Electrónica' : emisionType}.</p>
             <p style={{ margin: '6px 0 0', fontWeight: 'bold' }}>¡Gracias por su compra!</p>
@@ -243,7 +243,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData }) =
                 Hash: {receiptData.hash}
               </p>
             )}
-            <p style={{ margin: '0', color: '#555' }}>Sujeto al Nuevo Régimen Único Simplificado - NRUS</p>
+            <p style={{ margin: '0', color: '#555' }}>{legalText}</p>
             <p style={{ margin: '0', color: '#555' }}>Representación impresa de la {isBoleta ? 'Boleta Electrónica' : emisionType}.</p>
             <p style={{ margin: '4px 0 0', color: '#555' }}>Consulte su comprobante en: facturacion.sypablitodp.site</p>
           </div>

@@ -11,10 +11,12 @@ import Historial from './pages/Historial';
 import Configuracion from './pages/Configuracion';
 import Fiados from './pages/Fiados';
 import Verificacion from './pages/Verificacion';
+import { CompanyProvider } from './contexts/CompanyContext';
 
 function App() {
   return (
     <AuthProvider>
+    <CompanyProvider>
       <Router>
         <Routes>
           {/* Ruta pública: Login */}
@@ -46,6 +48,7 @@ function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
+    </CompanyProvider>
     </AuthProvider>
   );
 }

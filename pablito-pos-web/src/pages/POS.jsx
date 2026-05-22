@@ -7,6 +7,7 @@ import { useNrusValve } from '../hooks/useNrusValve';
 import PrintReceipt from '../components/PrintReceipt';
 import { getWhatsAppLink } from '../lib/whatsapp';
 import { logAudit } from '../services/auditService';
+import { useCompany } from '../contexts/CompanyContext';
 
 const POS = () => {
   const [products, setProducts] = useState([]);
@@ -15,32 +16,22 @@ const POS = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
   const [dbError, setDbError] = useState(null);
-  const [company, setCompany] = useState(null);
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   
+  const { company, regimeConfig } = useCompany();
   const { cart, emisionType, printFormat, lastReceipt, setEmisionType, setPrintFormat, setLastReceipt, addItem, removeItem, updateQuantity, clearCart, getTotals } = useCartStore();
-  const { subtotal, igv, total, itemCount } = getTotals();
+  const { subtotal, igv, total, itemCount } = getTotals(regimeConfig.hasIgv);
 
   // Válvula NRUS
   const { isDangerZone, isExceeded, limit, isLoading: nrusLoading } = useNrusValve(parseFloat(total));
 
   useEffect(() => {
     fetchProducts();
-    fetchCompany();
     fetchClients();
   }, []);
-
-  const fetchCompany = async () => {
-    try {
-      const { data } = await supabase.from('company_profile').select('*').eq('is_active', true).limit(1).single();
-      if (data) setCompany(data);
-    } catch (e) {
-      console.error("Error loading company:", e);
-    }
-  };
 
   const fetchClients = async () => {
     const { data } = await supabase.from('clients').select('id, dni, full_name, phone').order('full_name');
@@ -86,12 +77,13 @@ const POS = () => {
     setIsProcessing(true);
     try {
       const isBoleta = emisionType === EMISION_TYPES.BOLETA;
+      const isFactura = emisionType === EMISION_TYPES.FACTURA;
       const isNota = emisionType === EMISION_TYPES.NOTA;
       const isAdelanto = emisionType === EMISION_TYPES.ADELANTO;
       const isCotizacion = emisionType === EMISION_TYPES.COTIZACION;
 
       // Determinar serie y calcular número correlativo
-      const series = isBoleta ? 'B001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
+      const series = isBoleta ? 'B001' : isFactura ? 'F001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
       const nextNumber = await getNextNumber(series);
 
       // Totales ya calculados correctamente en el store
@@ -124,20 +116,29 @@ const POS = () => {
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
       if (itemsError) throw itemsError;
 
-      // 3. Descontar stock de cada producto vendido
+      // 3. Descontar stock atómicamente (evita race conditions)
       for (const item of cart) {
-        const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
-        if (prod) {
-          await supabase.from('products').update({ 
-            stock: Math.max(0, (prod.stock || 0) - item.quantity) 
-          }).eq('id', item.id);
+        try {
+          // Usa función RPC para actualización atómica
+          await supabase.rpc('decrement_stock', { 
+            p_product_id: item.id, 
+            p_quantity: item.quantity 
+          });
+        } catch {
+          // Fallback si la función RPC no existe aún
+          const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+          if (prod) {
+            await supabase.from('products').update({ 
+              stock: Math.max(0, (prod.stock || 0) - item.quantity) 
+            }).eq('id', item.id);
+          }
         }
       }
 
-      // 3. Llamar API SUNAT SOLO si es Boleta
+      // 3. Llamar API SUNAT si es Boleta o Factura
       let hashSunat = null;
       let sunatMsg = null;
-      if (isBoleta) {
+      if (isBoleta || isFactura) {
         try {
           hashSunat = await generarHashSunat(saleData, saleItems);
           if (hashSunat) {
@@ -192,7 +193,7 @@ const POS = () => {
 
   return (
     <>
-      <PrintReceipt cart={cart} totals={{subtotal, igv, total}} emisionType={emisionType} printFormat={printFormat} receiptData={lastReceipt} />
+      <PrintReceipt cart={cart} totals={{subtotal, igv, total}} emisionType={emisionType} printFormat={printFormat} receiptData={lastReceipt} regimeConfig={regimeConfig} />
       
       <div className="h-full flex flex-col md:flex-row gap-6 no-print">
         {/* PANEL IZQUIERDO: CATÁLOGO */}
@@ -265,17 +266,18 @@ const POS = () => {
             <div className="p-4 flex-1 overflow-y-auto space-y-4">
               
               {/* NRUS Warning */}
-              {!nrusLoading && isDangerZone && (
+              {!nrusLoading && isDangerZone && regimeConfig.monthlyLimit && (
                 <div className={`alert ${isExceeded ? 'alert-error' : 'alert-warning'} text-xs p-2`}>
                   <AlertTriangle size={16} />
-                  <span>{isExceeded ? '¡Límite NRUS excedido! Boleta deshabilitada.' : `Alerta NRUS: Acercándose al límite de S/${limit}`}</span>
+                  <span>{isExceeded ? `¡Límite ${regimeConfig.name} excedido! Boleta deshabilitada.` : `Alerta ${regimeConfig.name}: Acercándose al límite de S/${regimeConfig.monthlyLimit}`}</span>
                 </div>
               )}
 
               {/* Controles de Emisión y Formato */}
               <div className="grid grid-cols-2 gap-2">
                 <select className="select select-bordered select-sm w-full" value={emisionType} onChange={(e) => setEmisionType(e.target.value)}>
-                  <option value={EMISION_TYPES.BOLETA} disabled={isExceeded}>{EMISION_TYPES.BOLETA}</option>
+                  <option value={EMISION_TYPES.BOLETA} disabled={isExceeded && regimeConfig.monthlyLimit}>{EMISION_TYPES.BOLETA}</option>
+                  {regimeConfig.canEmitFactura && <option value={EMISION_TYPES.FACTURA}>{EMISION_TYPES.FACTURA}</option>}
                   <option value={EMISION_TYPES.NOTA}>{EMISION_TYPES.NOTA}</option>
                   <option value={EMISION_TYPES.ADELANTO}>{EMISION_TYPES.ADELANTO}</option>
                   <option value={EMISION_TYPES.COTIZACION}>{EMISION_TYPES.COTIZACION}</option>
@@ -358,7 +360,7 @@ const POS = () => {
               {/* Totales */}
               <div className="space-y-1 text-sm border-t border-base-200 pt-2">
                 <div className="flex justify-between"><span className="text-base-content/70">Subtotal</span><span>S/ {subtotal}</span></div>
-                {emisionType === EMISION_TYPES.BOLETA && <div className="flex justify-between"><span className="text-base-content/70">IGV (18%)</span><span>S/ {igv}</span></div>}
+                {(emisionType === EMISION_TYPES.BOLETA || emisionType === EMISION_TYPES.FACTURA) && <div className="flex justify-between"><span className="text-base-content/70">IGV (18%)</span><span>S/ {igv}</span></div>}
                 <div className="flex justify-between items-center pt-2 font-bold text-lg"><span>Total</span><span className="text-primary">S/ {total}</span></div>
               </div>
             </div>

@@ -69,6 +69,7 @@ const Historial = () => {
     if (v.is_adelanto) return <span className="badge badge-info">Adelanto</span>;
     if (v.is_boletin) return <span className="badge badge-secondary">Boletín</span>;
     if (v.series?.startsWith('B')) return <span className="badge badge-success">Boleta</span>;
+    if (v.series?.startsWith('F')) return <span className="badge badge-accent">Factura</span>;
     return <span className="badge badge-neutral">Nota Venta</span>;
   };
 

@@ -69,6 +69,7 @@ const Verificacion = () => {
     if (sale.is_proforma) return 'PROFORMA';
     if (sale.is_adelanto) return 'ADELANTO';
     if (sale.series?.startsWith('B')) return 'BOLETA DE VENTA ELECTRÓNICA';
+    if (sale.series?.startsWith('F')) return 'FACTURA ELECTRÓNICA';
     return 'NOTA DE VENTA';
   };
 

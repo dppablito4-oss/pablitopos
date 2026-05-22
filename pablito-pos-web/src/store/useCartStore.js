@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export const EMISION_TYPES = {
   BOLETA: 'Boleta Electrónica',
+  FACTURA: 'Factura Electrónica',
   NOTA: 'Nota de Venta Interna',
   ADELANTO: 'Adelanto',
   COTIZACION: 'Cotización'
@@ -53,17 +54,16 @@ export const useCartStore = create(persist((set, get) => ({
 
   clearCart: () => set({ cart: [], emisionType: EMISION_TYPES.BOLETA }),
 
-  getTotals: () => {
+  getTotals: (hasIgv = false) => {
     const { cart, emisionType } = get();
     const sumaPrecio = cart.reduce((sum, item) => sum + item.subtotal, 0);
-    const isBoleta = emisionType === EMISION_TYPES.BOLETA;
+    const isBoleta = emisionType === EMISION_TYPES.BOLETA || emisionType === EMISION_TYPES.FACTURA;
     
-    // Los precios YA incluyen IGV.
-    // Para Boleta: descomponemos en base imponible + IGV
-    // Para otros tipos: no aplica IGV
+    // Solo descomponer IGV si el régimen lo requiere Y es boleta/factura
+    const shouldDecomposeIgv = hasIgv && isBoleta;
     const total = sumaPrecio;
-    const baseImponible = isBoleta ? parseFloat((sumaPrecio / 1.18).toFixed(2)) : sumaPrecio;
-    const igv = isBoleta ? parseFloat((sumaPrecio - baseImponible).toFixed(2)) : 0;
+    const baseImponible = shouldDecomposeIgv ? parseFloat((sumaPrecio / 1.18).toFixed(2)) : sumaPrecio;
+    const igv = shouldDecomposeIgv ? parseFloat((sumaPrecio - baseImponible).toFixed(2)) : 0;
 
     return {
       subtotal: baseImponible.toFixed(2),
