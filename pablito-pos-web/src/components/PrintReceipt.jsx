@@ -78,8 +78,9 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData }) =
         <div className="text-center flex flex-col items-center">
           {receiptData.hash && (
             <div className="mb-4 flex flex-col items-center">
-              <QRCodeSVG value={`${receiptData.company.ruc}|03|${receiptData.serie}|${receiptData.correlativo}|${totals.igv}|${totals.total}|${receiptData.fechaEmision.split('T')[0]}|1|${receiptData.cliente.numDoc}|${receiptData.hash}`} size={isTicket ? 120 : 150} />
+              <QRCodeSVG value={`https://facturacion.sypablitodp.site/#/verificacion?ruc=${receiptData.company.ruc}&serie=${receiptData.serie}&correlativo=${receiptData.correlativo}`} size={isTicket ? 120 : 150} />
               <p className="text-xs mt-2 break-all w-full max-w-xs font-mono">{receiptData.hash}</p>
+              <p className="text-xs mt-1">Escanea para verificar</p>
             </div>
           )}
           {receiptData.sunatWarning && (

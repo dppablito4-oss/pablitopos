@@ -10,6 +10,7 @@ import Productos from './pages/Productos';
 import Historial from './pages/Historial';
 import Configuracion from './pages/Configuracion';
 import Fiados from './pages/Fiados';
+import Verificacion from './pages/Verificacion';
 
 function App() {
   return (
@@ -37,6 +38,9 @@ function App() {
             <Route path="fiados" element={<Fiados />} />
             <Route path="configuracion" element={<Configuracion />} />
           </Route>
+
+          {/* Rutas públicas */}
+          <Route path="/verificacion" element={<Verificacion />} />
 
           {/* Cualquier otra ruta → Login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
