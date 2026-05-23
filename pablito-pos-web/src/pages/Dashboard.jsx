@@ -99,21 +99,19 @@ const Dashboard = () => {
   const nrusColor = nrusPct >= 90 ? 'progress-error' : nrusPct >= 70 ? 'progress-warning' : 'progress-success';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header con reloj */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-base-content/60 mt-1">
+          <h2 className="text-xl md:text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-base-content/60 text-xs md:text-sm mt-0.5">
             {hora.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-2xl font-bold font-mono tabular-nums">
-              {hora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          <p className="text-lg md:text-2xl font-bold font-mono tabular-nums">
+            {hora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </p>
           <button className="btn btn-ghost btn-sm" onClick={fetchStats} disabled={isLoading}>
             <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
           </button>
@@ -123,17 +121,17 @@ const Dashboard = () => {
       {error && <div className="alert alert-warning shadow-sm text-sm"><AlertCircle size={16}/>{error}</div>}
 
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="glass-card">
-          <div className="card-body p-5">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <div className="bg-base-200 rounded-xl">
+          <div className="p-3 md:p-5">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-base-content/60">Ventas de Hoy</p>
-                <h3 className="text-2xl font-bold mt-1">
+                <p className="text-xs text-base-content/60">Ventas de Hoy</p>
+                <h3 className="text-lg md:text-2xl font-bold mt-0.5">
                   {isLoading ? <span className="loading loading-dots loading-sm"/> : `S/ ${stats.ventasHoy.toFixed(2)}`}
                 </h3>
               </div>
-              <div className="p-2 bg-success/10 text-success rounded-lg"><DollarSign size={22}/></div>
+              <div className="p-1.5 md:p-2 bg-success/10 text-success rounded-lg"><DollarSign size={18}/></div>
             </div>
             <p className={`text-xs mt-2 font-semibold ${parseFloat(ventasPct) >= 0 ? 'text-success' : 'text-error'}`}>
               {parseFloat(ventasPct) >= 0 ? '↑' : '↓'} {Math.abs(ventasPct)}% vs ayer
@@ -141,16 +139,16 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="glass-card">
-          <div className="card-body p-5">
+        <div className="bg-base-200 rounded-xl">
+          <div className="p-3 md:p-5">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-base-content/60">Comprobantes Hoy</p>
-                <h3 className="text-2xl font-bold mt-1">
+                <p className="text-xs text-base-content/60">Comprobantes Hoy</p>
+                <h3 className="text-lg md:text-2xl font-bold mt-0.5">
                   {isLoading ? <span className="loading loading-dots loading-sm"/> : stats.boletasHoy}
                 </h3>
               </div>
-              <div className="p-2 bg-primary/10 text-primary rounded-lg"><FileText size={22}/></div>
+              <div className="p-1.5 md:p-2 bg-primary/10 text-primary rounded-lg"><FileText size={18}/></div>
             </div>
             <p className={`text-xs mt-2 font-semibold ${parseFloat(boletasPct) >= 0 ? 'text-success' : 'text-error'}`}>
               {parseFloat(boletasPct) >= 0 ? '↑' : '↓'} {Math.abs(boletasPct)}% vs ayer
@@ -158,31 +156,31 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="glass-card">
-          <div className="card-body p-5">
+        <div className="bg-base-200 rounded-xl">
+          <div className="p-3 md:p-5">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-base-content/60">Ticket Promedio</p>
-                <h3 className="text-2xl font-bold mt-1">
+                <p className="text-xs text-base-content/60">Ticket Promedio</p>
+                <h3 className="text-lg md:text-2xl font-bold mt-0.5">
                   {isLoading ? <span className="loading loading-dots loading-sm"/> : `S/ ${ticketPromedio.toFixed(2)}`}
                 </h3>
               </div>
-              <div className="p-2 bg-info/10 text-info rounded-lg"><TrendingUp size={22}/></div>
+              <div className="p-1.5 md:p-2 bg-info/10 text-info rounded-lg"><TrendingUp size={18}/></div>
             </div>
             <p className="text-xs mt-2 text-base-content/50">Promedio por comprobante</p>
           </div>
         </div>
 
-        <div className="glass-card">
-          <div className="card-body p-5">
+        <div className="bg-base-200 rounded-xl">
+          <div className="p-3 md:p-5">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-base-content/60">Fiados Pendientes</p>
-                <h3 className="text-2xl font-bold mt-1 text-error">
+                <p className="text-xs text-base-content/60">Fiados Pendientes</p>
+                <h3 className="text-lg md:text-2xl font-bold mt-0.5 text-error">
                   {isLoading ? <span className="loading loading-dots loading-sm"/> : `S/ ${stats.fiadosPendientes.toFixed(2)}`}
                 </h3>
               </div>
-              <div className="p-2 bg-error/10 text-error rounded-lg"><Clock size={22}/></div>
+              <div className="p-1.5 md:p-2 bg-error/10 text-error rounded-lg"><Clock size={18}/></div>
             </div>
             <p className="text-xs mt-2 text-base-content/50">Total por cobrar</p>
           </div>
@@ -190,11 +188,11 @@ const Dashboard = () => {
       </div>
 
       {/* Limite Mensual + Top Productos */}
-      <div className={`grid gap-4 ${monthlyLimit ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+      <div className={`grid gap-3 ${monthlyLimit ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
         {/* Gauge mensual — solo si el régimen tiene límite */}
         {monthlyLimit && (
-        <div className="glass-card">
-          <div className="card-body">
+        <div className="bg-base-200 rounded-xl">
+          <div className="p-4">
             <h3 className="font-bold text-lg">Control {regimeConfig.name} Mensual</h3>
             <p className="text-base-content/60 text-sm mb-3">Límite: S/ {monthlyLimit.toLocaleString()}</p>
             <div className="flex justify-between text-sm mb-2">
@@ -217,8 +215,8 @@ const Dashboard = () => {
         )}
 
         {/* Top Productos */}
-        <div className="glass-card">
-          <div className="card-body">
+        <div className="bg-base-200 rounded-xl">
+          <div className="p-4">
             <h3 className="font-bold text-lg">Top Productos Recientes</h3>
             <p className="text-base-content/60 text-sm mb-3">Por monto vendido</p>
             {isLoading ? (
