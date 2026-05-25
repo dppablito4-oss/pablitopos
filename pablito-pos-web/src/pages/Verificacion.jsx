@@ -56,11 +56,18 @@ const Verificacion = () => {
         .from('sales')
         .select('*')
         .eq('series', bSerie)
-        .eq('number', parseInt(bCorrelativo));
+        .eq('number', Number(bCorrelativo))
+        .limit(1);
 
-      const { data: saleData, error: saleErr } = await query.single();
+      const { data: saleData, error: saleErr } = await query.maybeSingle();
 
-      if (saleErr || !saleData) {
+      if (saleErr) {
+        setError(`Error de base de datos: ${saleErr.message}`);
+        setLoading(false);
+        return;
+      }
+      
+      if (!saleData) {
         setError('Comprobante no encontrado en el sistema.');
         setLoading(false);
         return;
