@@ -173,7 +173,7 @@ const POS = () => {
         sunatWarning: sunatMsg
       };
       setLastReceipt(receiptData);
-      logAudit('VENTA', `${series}-${nextNumber} | S/${totalFloat} | ${selectedClient?.full_name || 'VARIOS'}`);
+      logAudit('VENTA', `${series}-${saleData.number} | S/${totalFloat} | ${selectedClient?.full_name || 'VARIOS'}`);
 
       // Esperar un render tick para que el PrintReceipt exista en el DOM
       setTimeout(() => {
