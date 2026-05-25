@@ -171,6 +171,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             <p style={{ margin: '0' }}>facturacion.sypablitodp.site/#/verificacion</p>
           </div>
         </div>
+      </div>
       </>
     );
   }
@@ -278,6 +279,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             <p style={{ margin: '4px 0 0', fontSize: '8px', color: '#888' }}>Código Verificación</p>
           </div>
         </div>
+      </div>
       </div>
     </>
   );
