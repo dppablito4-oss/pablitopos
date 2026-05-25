@@ -47,9 +47,12 @@ const Historial = () => {
           };
           html2pdf().set(opt).from(element).save().then(() => {
             setDownloadPdfTrigger(false);
+          }).catch(err => {
+            console.error("Error PDF:", err);
+            setDownloadPdfTrigger(false);
           });
         }
-      }, 300);
+      }, 500);
     }
   }, [downloadPdfTrigger, receiptToPrint, company]);
 
@@ -178,13 +181,17 @@ const Historial = () => {
       totals: { subtotal: parseFloat(v.subtotal).toFixed(2), igv: parseFloat(v.igv).toFixed(2), total: parseFloat(v.total).toFixed(2) }
     });
     
-    if (format === 'A4_DOWNLOAD') {
-      setPrintFormat('A4');
+    if (format === 'A4_DOWNLOAD' || format === 'TICKET_DOWNLOAD') {
+      setPrintFormat(format === 'TICKET_DOWNLOAD' ? 'TICKET' : 'A4');
       setDownloadPdfTrigger(true);
     } else {
       setPrintFormat(format);
       setTimeout(() => {
+        const fileName = `${company?.ruc || 'RUC'}-${v.series?.startsWith('F') ? '01' : '03'}-${v.series}-${String(v.number).padStart(8,'0')}`;
+        const originalTitle = document.title;
+        document.title = fileName;
         window.print();
+        setTimeout(() => { document.title = originalTitle; }, 1000);
       }, 500);
     }
   };
@@ -281,18 +288,37 @@ const Historial = () => {
                               <Printer size={16}/>
                             </label>
                             <ul tabIndex={0} className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-48">
-                              <li><a onClick={() => handleReprint(v, 'TICKET')}>Imprimir Ticket (80mm)</a></li>
-                              <li><a onClick={() => handleReprint(v, 'A4')}>Imprimir A4</a></li>
-                              <li><a onClick={() => handleReprint(v, 'A4_DOWNLOAD')} className="text-primary font-medium"><Download size={14}/> Descargar PDF (A4)</a></li>
+                              <li className="menu-title"><span>Imprimir directo</span></li>
+                              <li><a onClick={() => handleReprint(v, 'TICKET')}>Ticket (80mm)</a></li>
+                              <li><a onClick={() => handleReprint(v, 'A4')}>Formato A4</a></li>
+                            </ul>
+                          </div>
+                          <div className="dropdown dropdown-end">
+                            <label tabIndex={0} className="btn btn-sm btn-ghost text-primary font-bold" title="Descargar PDF">
+                              PDF
+                            </label>
+                            <ul tabIndex={0} className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-48">
+                              <li className="menu-title"><span>Descargar archivo PDF</span></li>
+                              <li><a onClick={() => handleReprint(v, 'TICKET_DOWNLOAD')}><Download size={14}/> Ticket (80mm)</a></li>
+                              <li><a onClick={() => handleReprint(v, 'A4_DOWNLOAD')}><Download size={14}/> Formato A4</a></li>
                             </ul>
                           </div>
                           {v.xml_base64 && (
                             <button 
-                              className="btn btn-sm btn-ghost text-success" 
+                              className="btn btn-sm btn-ghost text-success font-bold" 
                               onClick={() => downloadBase64File(v.xml_base64, `${company?.ruc || 'RUC'}-${v.series}-${v.number}.xml`, 'application/xml')} 
                               title="Descargar XML"
                             >
                               XML
+                            </button>
+                          )}
+                          {v.cdr_base64 && (
+                            <button 
+                              className="btn btn-sm btn-ghost text-primary font-bold" 
+                              onClick={() => downloadBase64File(v.cdr_base64, `R-${company?.ruc || 'RUC'}-${v.series}-${v.number}.zip`, 'application/zip')} 
+                              title="Descargar CDR (ZIP)"
+                            >
+                              CDR
                             </button>
                           )}
                         </div>
@@ -333,18 +359,34 @@ const Historial = () => {
       </div>
     </div>
     
-    {/* Componente Oculto para Impresión o Descarga PDF */}
-    {receiptToPrint && (
-      <div id="historial-print-receipt" className={downloadPdfTrigger ? '' : 'hidden'}>
-        <PrintReceipt 
-          cart={receiptToPrint.cart} 
-          totals={receiptToPrint.totals} 
-          emisionType={receiptToPrint.emisionType} 
-          printFormat={printFormat} 
-          receiptData={receiptToPrint.receiptData}
-          regimeConfig={REGIME_CONFIG[company?.tax_regime || 'nrus']}
-        />
+    {/* Componente Oculto para Descarga PDF (Fuera de pantalla) */}
+    {receiptToPrint && downloadPdfTrigger && (
+      <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', zIndex: -100 }}>
+        <div id="historial-print-receipt" className="bg-white">
+          <PrintReceipt 
+            cart={receiptToPrint.cart} 
+            totals={receiptToPrint.totals} 
+            emisionType={receiptToPrint.emisionType} 
+            printFormat={printFormat} 
+            receiptData={receiptToPrint.receiptData}
+            regimeConfig={REGIME_CONFIG[company?.tax_regime || 'nrus']}
+            isPreview={true}
+          />
+        </div>
       </div>
+    )}
+
+    {/* Componente Oculto para Impresión de Navegador (window.print) */}
+    {receiptToPrint && !downloadPdfTrigger && (
+      <PrintReceipt 
+        cart={receiptToPrint.cart} 
+        totals={receiptToPrint.totals} 
+        emisionType={receiptToPrint.emisionType} 
+        printFormat={printFormat} 
+        receiptData={receiptToPrint.receiptData}
+        regimeConfig={REGIME_CONFIG[company?.tax_regime || 'nrus']}
+        isPreview={false}
+      />
     )}
   </>
   );
