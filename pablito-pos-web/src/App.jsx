@@ -10,10 +10,13 @@ import Productos from './pages/Productos';
 import Historial from './pages/Historial';
 import Configuracion from './pages/Configuracion';
 import Fiados from './pages/Fiados';
+import Verificacion from './pages/Verificacion';
+import { CompanyProvider } from './contexts/CompanyContext';
 
 function App() {
   return (
     <AuthProvider>
+    <CompanyProvider>
       <Router>
         <Routes>
           {/* Ruta pública: Login */}
@@ -38,10 +41,14 @@ function App() {
             <Route path="configuracion" element={<Configuracion />} />
           </Route>
 
+          {/* Rutas públicas */}
+          <Route path="/verificacion" element={<Verificacion />} />
+
           {/* Cualquier otra ruta → Login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
+    </CompanyProvider>
     </AuthProvider>
   );
 }

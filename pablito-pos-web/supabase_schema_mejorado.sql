@@ -32,6 +32,7 @@ CREATE TABLE company_profile (
     sol_pass TEXT DEFAULT 'MODDATOS',
     cert_pem TEXT,
     production BOOLEAN DEFAULT FALSE,
+    tax_regime TEXT DEFAULT 'nrus',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

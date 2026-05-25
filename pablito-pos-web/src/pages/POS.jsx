@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Trash2, Receipt, Minus, Printer, AlertTriangle, Send } from 'lucide-react';
+import { Search, Plus, Trash2, Receipt, Minus, Printer, AlertTriangle, Send, X, UserSearch } from 'lucide-react';
 import { useCartStore, EMISION_TYPES, PRINT_FORMATS } from '../store/useCartStore';
 import { supabase } from '../lib/supabase';
 import { generarHashSunat } from '../lib/sunatService';
 import { useNrusValve } from '../hooks/useNrusValve';
 import PrintReceipt from '../components/PrintReceipt';
 import { getWhatsAppLink } from '../lib/whatsapp';
+import { logAudit } from '../services/auditService';
+import { useCompany } from '../contexts/CompanyContext';
 
 const POS = () => {
   const [products, setProducts] = useState([]);
@@ -16,26 +18,26 @@ const POS = () => {
   const [clienteDoc, setClienteDoc] = useState('');
   const [clienteNombre, setClienteNombre] = useState('');
   const [dbError, setDbError] = useState(null);
-  const [company, setCompany] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
   
+  const { company, regimeConfig } = useCompany();
   const { cart, emisionType, printFormat, lastReceipt, setEmisionType, setPrintFormat, setLastReceipt, addItem, removeItem, updateQuantity, clearCart, getTotals } = useCartStore();
-  const { subtotal, igv, total, itemCount } = getTotals();
+  const { subtotal, igv, total, itemCount } = getTotals(regimeConfig.hasIgv);
 
   // Válvula NRUS
   const { isDangerZone, isExceeded, limit, isLoading: nrusLoading } = useNrusValve(parseFloat(total));
 
   useEffect(() => {
     fetchProducts();
-    fetchCompany();
+    fetchClients();
   }, []);
 
-  const fetchCompany = async () => {
-    try {
-      const { data } = await supabase.from('company_profile').select('*').eq('is_active', true).limit(1).single();
-      if (data) setCompany(data);
-    } catch (e) {
-      console.error("Error loading company profile:", e);
-    }
+  const fetchClients = async () => {
+    const { data } = await supabase.from('clients').select('id, dni, full_name, phone').order('full_name');
+    if (data) setClients(data);
   };
 
   // Validar y forzar cambio si NRUS excede
@@ -70,43 +72,28 @@ const POS = () => {
       const isAdelanto = emisionType === EMISION_TYPES.ADELANTO;
       const isCotizacion = emisionType === EMISION_TYPES.COTIZACION;
 
-      if (isFactura && (!clienteDoc || clienteDoc.length !== 11)) {
-        alert("Para Factura Electrónica es obligatorio ingresar un RUC válido (11 dígitos).");
-        setIsProcessing(false);
-        return;
-      }
-
-      // Determinar serie
-      let series = 'NV01';
-      if (isBoleta) series = 'B001';
-      else if (isFactura) series = 'F001';
-      else if (isCotizacion) series = 'PRF';
-      else if (isAdelanto) series = 'ADL';
-
       const isBoletaOrFactura = isBoleta || isFactura;
+      if (isFactura && (!selectedClient?.dni || selectedClient.dni.length !== 11)) {
+        if (!clienteDoc || clienteDoc.length !== 11) {
+          alert("Para Factura Electrónica es obligatorio seleccionar un cliente con RUC (11 dígitos) o ingresarlo manualmente.");
+          setIsProcessing(false);
+          return;
+        }
+      }
+      const series = isBoleta ? 'B001' : isFactura ? 'F001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
 
-      // Cálculo de totales correcto (IGV incluido en precio)
+      // Totales ya calculados correctamente en el store
       const totalFloat = parseFloat(total);
-      const subtotalBase = isBoletaOrFactura ? (totalFloat / 1.18) : totalFloat;
-      const igvAmt = isBoletaOrFactura ? (totalFloat - subtotalBase) : 0;
-
-      // Buscar o crear cliente si se ingresó documento
-      let clientId = null;
-      if (clienteDoc && clienteNombre) {
-        const { data: existingClient } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('dni', clienteDoc)
-          .single();
-        
+      const subtotalFloat = parseFloat(subtotal);
+      const igvFloat = parseFloat(igv);
+      
+      let clientId = selectedClient?.id || null;
+      if (!clientId && clienteDoc && clienteNombre) {
+        const { data: existingClient } = await supabase.from('clients').select('id').eq('dni', clienteDoc).single();
         if (existingClient) {
           clientId = existingClient.id;
         } else {
-          const { data: newClient } = await supabase
-            .from('clients')
-            .insert([{ dni: clienteDoc, full_name: clienteNombre.toUpperCase() }])
-            .select('id')
-            .single();
+          const { data: newClient } = await supabase.from('clients').insert([{ dni: clienteDoc, full_name: clienteNombre.toUpperCase() }]).select('id').single();
           if (newClient) clientId = newClient.id;
         }
       }
@@ -117,11 +104,11 @@ const POS = () => {
         .from('sales')
         .insert([{
           series,
-          number: 0, // El trigger asignará el valor real
           client_id: clientId,
-          subtotal: parseFloat(subtotalBase.toFixed(2)),
-          igv: parseFloat(igvAmt.toFixed(2)),
+          subtotal: subtotalFloat,
+          igv: igvFloat,
           total: totalFloat,
+          client_id: selectedClient?.id || null,
           company_id: company?.id || 1,
           is_proforma: isCotizacion,
           is_adelanto: isAdelanto,
@@ -137,7 +124,17 @@ const POS = () => {
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
       if (itemsError) throw itemsError;
 
-      // 3. Llamar API SUNAT SOLO si es Boleta o Factura
+      // 3. Descontar stock atómicamente
+      for (const item of cart) {
+        try {
+          await supabase.rpc('decrement_stock', { p_product_id: item.id, p_quantity: item.quantity });
+        } catch {
+          const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
+          if (prod) {
+            await supabase.from('products').update({ stock: Math.max(0, (prod.stock || 0) - item.quantity) }).eq('id', item.id);
+          }
+        }
+      }
       let hashSunat = null;
       let sunatMsg = null;
       if (isBoletaOrFactura) {
@@ -160,7 +157,9 @@ const POS = () => {
           razonSocial: company?.name || "PABLITO POS",
           direccion: company?.address || "AV PRINCIPAL S/N"
         },
-        cliente: { numDoc: clienteDoc || "00000000", rznSocial: clienteNombre || "CLIENTE VARIOS" },
+        cliente: selectedClient 
+          ? { numDoc: selectedClient.dni || "00000000", rznSocial: selectedClient.full_name }
+          : { numDoc: clienteDoc || "00000000", rznSocial: clienteNombre || "CLIENTE VARIOS" },
         serie: saleData.series,
         correlativo: saleData.number,
         fechaEmision: saleData.datetime || new Date().toISOString(),
@@ -168,11 +167,14 @@ const POS = () => {
         sunatWarning: sunatMsg
       };
       setLastReceipt(receiptData);
+      logAudit('VENTA', `${series}-${nextNumber} | S/${totalFloat} | ${selectedClient?.full_name || 'VARIOS'}`);
 
       // Esperar un render tick para que el PrintReceipt exista en el DOM
       setTimeout(() => {
         window.print();
         clearCart();
+        setSelectedClient(null);
+        setClientSearch('');
       }, 500);
 
     } catch (error) {
@@ -190,128 +192,230 @@ const POS = () => {
 
   return (
     <>
-      <PrintReceipt cart={cart} totals={{subtotal, igv, total}} emisionType={emisionType} printFormat={printFormat} receiptData={lastReceipt} />
+      <PrintReceipt cart={cart} totals={{subtotal, igv, total}} emisionType={emisionType} printFormat={printFormat} receiptData={lastReceipt} regimeConfig={regimeConfig} />
       
-      <div className="h-full flex flex-col md:flex-row gap-6 no-print">
-        {/* PANEL IZQUIERDO: CATÁLOGO */}
-        <div className="flex-1 flex flex-col bg-base-100 rounded-xl shadow-sm border border-base-200 overflow-hidden">
-          <div className="p-4 border-b border-base-200 flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
-              <input type="text" placeholder="Buscar producto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input input-bordered w-full pl-10" />
+      <div className="h-full flex flex-col lg:flex-row gap-4 md:gap-6 no-print">
+        {/* ═══════════ PANEL IZQUIERDO: CATÁLOGO ═══════════ */}
+        <div className="flex-1 flex flex-col min-h-0 lg:min-h-full">
+          {/* Search bar */}
+          <div className="bg-base-200 rounded-xl p-3 mb-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" size={18} />
+              <input 
+                type="text" 
+                placeholder="Buscar producto..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="input input-sm md:input-md w-full pl-10 bg-base-300/50 border-0 focus:bg-base-300" 
+              />
             </div>
           </div>
-          <div className="flex-1 p-4 overflow-y-auto bg-base-200/50">
+          
+          {/* Products grid */}
+          <div className="flex-1 overflow-y-auto rounded-xl bg-base-200/30 p-3 min-h-[150px] max-h-[35vh] lg:max-h-none">
             {dbError ? (
-              <div className="flex items-center justify-center h-full p-6">
-                <div className="alert alert-error max-w-md">
-                  <AlertTriangle size={20}/>
-                  <span>{dbError}</span>
-                </div>
+              <div className="flex items-center justify-center h-full p-4">
+                <div className="alert alert-error text-sm"><AlertTriangle size={16}/><span>{dbError}</span></div>
               </div>
             ) : isLoading ? (
-              <div className="flex items-center justify-center h-full"><span className="loading loading-spinner text-primary"></span></div>
+              <div className="flex items-center justify-center h-32"><span className="loading loading-spinner text-primary"></span></div>
             ) : products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-base-content/40 gap-2">
-                <p className="font-medium">No hay productos activos.</p>
-                <p className="text-sm">Agrega productos desde el módulo Productos.</p>
+              <div className="flex flex-col items-center justify-center h-32 text-base-content/40 gap-1">
+                <p className="font-medium text-sm">No hay productos activos.</p>
+                <p className="text-xs">Agrega productos desde el módulo Productos.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
                 {filteredProducts.map((p) => (
-                  <div key={p.id} onClick={() => addItem(p)} className="card bg-base-100 shadow-sm hover:shadow-md cursor-pointer border border-base-200 hover:border-primary">
-                    <div className="card-body p-4 items-center text-center">
-                      <h2 className="card-title text-sm line-clamp-2">{p.name}</h2>
-                      <p className="text-lg font-bold text-primary">S/ {p.price.toFixed(2)}</p>
-                    </div>
-                  </div>
+                  <button 
+                    key={p.id} 
+                    onClick={() => addItem(p)} 
+                    className="bg-base-200 hover:bg-base-300 border border-base-300/50 hover:border-primary/50 rounded-xl p-3 md:p-4 text-center transition-all duration-150 active:scale-95"
+                  >
+                    <p className="text-xs md:text-sm font-medium line-clamp-2 mb-1">{p.name}</p>
+                    <p className="text-sm md:text-base font-bold text-primary">S/ {p.price.toFixed(2)}</p>
+                  </button>
                 ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* PANEL DERECHO: CARRITO */}
-        <div className="w-full md:w-96 flex flex-col gap-4">
-          <div className="bg-base-100 rounded-xl shadow-sm border border-base-200 flex flex-col overflow-hidden h-[50%]">
-            <div className="p-4 border-b border-base-200 bg-base-200/30 flex justify-between">
-              <h2 className="font-bold text-lg">Carrito</h2>
-              <span className="badge badge-primary">{itemCount} items</span>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              {cart.map((item) => (
-                <div key={item.id} className="flex flex-col p-3 border-b border-base-200 gap-2">
-                  <div className="flex justify-between items-start">
-                    <span className="font-medium text-sm">{item.name}</span>
-                    <button onClick={() => removeItem(item.id)} className="text-error"><Trash2 size={16} /></button>
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <div className="flex items-center gap-2 border border-base-300 rounded">
-                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2 py-1 bg-base-200"><Minus size={14}/></button>
-                      <span className="text-sm font-semibold w-4 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2 py-1 bg-base-200"><Plus size={14}/></button>
+        {/* ═══════════ SEPARADOR VISUAL ═══════════ */}
+        <div className="hidden lg:flex items-stretch">
+          <div className="w-px bg-base-300/60"></div>
+        </div>
+        <div className="lg:hidden">
+          <div className="divider my-2 text-[10px] text-base-content/20 uppercase tracking-widest">Carrito</div>
+        </div>
+
+        {/* ═══════════ PANEL DERECHO: CARRITO + TOTALES ═══════════ */}
+        <div className="w-full lg:w-[380px] flex flex-col gap-3 min-h-0">
+          
+          <div className="hidden lg:flex justify-between items-center px-1">
+            <h2 className="font-bold text-base md:text-lg">Carrito</h2>
+            <span className="badge badge-primary badge-sm">{itemCount} items</span>
+          </div>
+          <div className="flex lg:hidden justify-end px-1">
+            <span className="badge badge-primary badge-sm">{itemCount} items</span>
+          </div>
+
+          {/* Cart items */}
+          <div className="bg-base-200 rounded-xl flex-1 overflow-y-auto min-h-[100px] max-h-[25vh] lg:max-h-[35vh]">
+            {cart.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-base-content/30 text-sm py-8">
+                Agrega productos al carrito
+              </div>
+            ) : (
+              <div className="divide-y divide-base-300/50">
+                {cart.map((item) => (
+                  <div key={item.id} className="p-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <p className="text-xs text-base-content/50">S/ {item.price.toFixed(2)} c/u</p>
                     </div>
-                    <span className="font-bold text-primary">S/ {item.subtotal.toFixed(2)}</span>
+                    <div className="flex items-center gap-1 bg-base-300/50 rounded-lg">
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-2 py-1 hover:bg-base-300 rounded-l-lg transition-colors"><Minus size={12}/></button>
+                      <span className="text-xs font-bold w-6 text-center tabular-nums">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-2 py-1 hover:bg-base-300 rounded-r-lg transition-colors"><Plus size={12}/></button>
+                    </div>
+                    <span className="font-bold text-sm text-primary whitespace-nowrap">S/ {item.subtotal.toFixed(2)}</span>
+                    <button onClick={() => removeItem(item.id)} className="text-error/60 hover:text-error transition-colors"><Trash2 size={14} /></button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* PANEL CONFIGURACIÓN Y TOTALES */}
-          <div className="bg-base-100 rounded-xl shadow-sm border border-base-200 flex flex-col overflow-hidden h-[50%] flex-shrink-0">
-            <div className="p-4 flex-1 overflow-y-auto space-y-4">
-              
-              {/* NRUS Warning */}
-              {!nrusLoading && isDangerZone && (
-                <div className={`alert ${isExceeded ? 'alert-error' : 'alert-warning'} text-xs p-2`}>
-                  <AlertTriangle size={16} />
-                  <span>{isExceeded ? '¡Límite NRUS excedido! Boleta deshabilitada.' : `Alerta NRUS: Acercándose al límite de S/${limit}`}</span>
-                </div>
+          {/* ── Separador ── */}
+          <div className="divider my-0"></div>
+
+          {/* NRUS Warning */}
+          {!nrusLoading && isDangerZone && regimeConfig.monthlyLimit && (
+            <div className={`alert ${isExceeded ? 'alert-error' : 'alert-warning'} text-xs p-2`}>
+              <AlertTriangle size={14} />
+              <span>{isExceeded ? `¡Límite ${regimeConfig.name} excedido!` : `Alerta ${regimeConfig.name}: Acercándose al límite`}</span>
+            </div>
+          )}
+
+          {/* Configuración */}
+          <div className="grid grid-cols-2 gap-2">
+            <select className="select select-bordered select-sm w-full text-xs" value={emisionType} onChange={(e) => setEmisionType(e.target.value)}>
+              <option value={EMISION_TYPES.BOLETA} disabled={isExceeded && regimeConfig.monthlyLimit}>{EMISION_TYPES.BOLETA}</option>
+              {regimeConfig.canEmitFactura && <option value={EMISION_TYPES.FACTURA}>{EMISION_TYPES.FACTURA}</option>}
+              <option value={EMISION_TYPES.NOTA}>{EMISION_TYPES.NOTA}</option>
+              <option value={EMISION_TYPES.ADELANTO}>{EMISION_TYPES.ADELANTO}</option>
+              <option value={EMISION_TYPES.COTIZACION}>{EMISION_TYPES.COTIZACION}</option>
+            </select>
+            
+            <select className="select select-bordered select-sm w-full text-xs" value={printFormat} onChange={(e) => setPrintFormat(e.target.value)}>
+              <option value={PRINT_FORMATS.TICKET}>Ticket 80mm</option>
+              <option value={PRINT_FORMATS.A4}>Formato A4</option>
+            </select>
+          </div>
+
+          {/* Selector de Cliente */}
+          <div className="relative">
+            <label className="text-[10px] text-base-content/50 font-semibold uppercase tracking-wider">Cliente</label>
+            <div className="flex gap-2 mt-1">
+              <div className="relative flex-1">
+                <UserSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/30" size={14} />
+                <input
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setShowClientDropdown(true);
+                    if (!e.target.value) setSelectedClient(null);
+                  }}
+                  onFocus={() => setShowClientDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                  className="input input-bordered input-sm w-full pl-8 text-xs"
+                />
+                {showClientDropdown && clientSearch && (
+                  <div className="absolute z-50 top-full left-0 right-0 bg-base-200 border border-base-300 rounded-xl shadow-xl mt-1 max-h-36 overflow-y-auto">
+                    {clients
+                      .filter(c =>
+                        c.full_name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                        c.dni?.includes(clientSearch)
+                      )
+                      .slice(0, 6)
+                      .map(c => (
+                        <button
+                          key={c.id}
+                          className="w-full text-left px-3 py-2 hover:bg-base-300 text-xs flex justify-between items-center"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setSelectedClient(c);
+                            setClientSearch(c.full_name);
+                            setShowClientDropdown(false);
+                          }}
+                        >
+                          <span className="font-medium truncate">{c.full_name}</span>
+                          <span className="text-base-content/40 font-mono ml-2">{c.dni || '—'}</span>
+                        </button>
+                      ))}
+                    {clients.filter(c =>
+                      c.full_name?.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                      c.dni?.includes(clientSearch)
+                    ).length === 0 && (
+                      <p className="text-xs text-base-content/30 text-center py-2">Sin resultados</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {selectedClient && (
+                <button className="btn btn-sm btn-ghost text-error px-2" onClick={() => { setSelectedClient(null); setClientSearch(''); }}>
+                  <X size={14} />
+                </button>
               )}
-
-              {/* Controles de Emisión y Formato */}
-              <div className="grid grid-cols-2 gap-2">
-                <select className="select select-bordered select-sm w-full" value={emisionType} onChange={(e) => setEmisionType(e.target.value)}>
-                  <option value={EMISION_TYPES.BOLETA} disabled={isExceeded}>{EMISION_TYPES.BOLETA}</option>
-                  <option value={EMISION_TYPES.FACTURA}>{EMISION_TYPES.FACTURA}</option>
-                  <option value={EMISION_TYPES.NOTA}>{EMISION_TYPES.NOTA}</option>
-                  <option value={EMISION_TYPES.ADELANTO}>{EMISION_TYPES.ADELANTO}</option>
-                  <option value={EMISION_TYPES.COTIZACION}>{EMISION_TYPES.COTIZACION}</option>
-                </select>
-                
-                <select className="select select-bordered select-sm w-full" value={printFormat} onChange={(e) => setPrintFormat(e.target.value)}>
-                  <option value={PRINT_FORMATS.TICKET}>Ticket 80mm</option>
-                  <option value={PRINT_FORMATS.A4}>Formato A4</option>
-                </select>
-              </div>
-
-              {/* Cliente */}
-              <div className="flex flex-col gap-2 border-t border-base-200 pt-2">
-                <input type="text" placeholder="DNI o RUC (Opcional)" value={clienteDoc} onChange={(e) => setClienteDoc(e.target.value)} className="input input-bordered input-sm w-full" />
-                <input type="text" placeholder="Nombre o Razón Social (Opcional)" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input input-bordered input-sm w-full" />
-              </div>
-
-              {/* Input WhatsApp */}
-              <div className="flex gap-2">
-                <input type="text" placeholder="Teléfono para WhatsApp..." value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="input input-bordered input-sm flex-1" />
-                <button onClick={handleWhatsApp} disabled={cart.length === 0} className="btn btn-sm btn-success text-white"><Send size={16}/></button>
-              </div>
-
-              {/* Totales */}
-              <div className="space-y-1 text-sm border-t border-base-200 pt-2">
-                <div className="flex justify-between"><span className="text-base-content/70">Subtotal</span><span>S/ {subtotal}</span></div>
-                {(emisionType === EMISION_TYPES.BOLETA || emisionType === EMISION_TYPES.FACTURA) && <div className="flex justify-between"><span className="text-base-content/70">IGV (18%)</span><span>S/ {igv}</span></div>}
-                <div className="flex justify-between items-center pt-2 font-bold text-lg"><span>Total</span><span className="text-primary">S/ {total}</span></div>
+              <div className="flex flex-col gap-2 mt-2">
+                <input type="text" placeholder="DNI o RUC (Nuevo)" value={clienteDoc} onChange={(e) => setClienteDoc(e.target.value)} className="input input-bordered input-sm w-full text-xs" />
+                <input type="text" placeholder="Nombre o Razón Social (Nuevo)" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input input-bordered input-sm w-full text-xs" />
               </div>
             </div>
+            {selectedClient && (
+              <p className="text-[10px] text-success mt-1">✓ {selectedClient.full_name} — {selectedClient.dni || 'Sin DNI'}</p>
+            )}
+          </div>
 
-            <div className="p-4 border-t border-base-200">
-              <button onClick={handleEmitir} disabled={cart.length === 0 || isProcessing} className="btn btn-primary w-full btn-lg">
-                {isProcessing ? <span className="loading loading-spinner"></span> : <><Printer size={24} /> Cobrar e Imprimir</>}
-              </button>
+          {/* WhatsApp */}
+          <div className="flex gap-2">
+            <input type="text" placeholder="Teléfono WhatsApp..." value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="input input-bordered input-sm flex-1 text-xs" />
+            <button onClick={handleWhatsApp} disabled={cart.length === 0} className="btn btn-sm btn-success text-white px-3"><Send size={14}/></button>
+          </div>
+
+          {/* ── Separador Totales ── */}
+          <div className="divider my-0"></div>
+
+          {/* Totales */}
+          <div className="bg-base-200 rounded-xl p-3 space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-base-content/50">Subtotal</span>
+              <span className="tabular-nums">S/ {subtotal}</span>
+            </div>
+            {(emisionType === EMISION_TYPES.BOLETA || emisionType === EMISION_TYPES.FACTURA) && (
+              <div className="flex justify-between text-xs">
+                <span className="text-base-content/50">IGV (18%)</span>
+                <span className="tabular-nums">S/ {igv}</span>
+              </div>
+            )}
+            <div className="divider my-1"></div>
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-sm">Total</span>
+              <span className="font-bold text-lg md:text-xl text-primary tabular-nums">S/ {total}</span>
             </div>
           </div>
+
+          {/* Botón Cobrar */}
+          <button 
+            onClick={handleEmitir} 
+            disabled={cart.length === 0 || isProcessing} 
+            className="btn btn-primary w-full h-12 md:h-14 text-sm md:text-base font-semibold gap-2"
+          >
+            {isProcessing ? <span className="loading loading-spinner"></span> : <><Printer size={20} /> Cobrar e Imprimir</>}
+          </button>
         </div>
       </div>
     </>

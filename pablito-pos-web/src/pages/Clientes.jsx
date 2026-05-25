@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logAudit } from '../services/auditService';
 
 const EMPTY_FORM = { dni: '', full_name: '', phone: '', email: '', address: '' };
 
@@ -54,6 +55,7 @@ const Clientes = () => {
     setSaving(false);
     if (err) { alert('Error: ' + err.message); return; }
     closeModal();
+    logAudit(editingId ? 'CLIENTE_EDITADO' : 'CLIENTE_CREADO', payload.full_name);
     fetchClientes();
   };
 
@@ -61,6 +63,7 @@ const Clientes = () => {
     if (!deleteId) return;
     const { error } = await supabase.from('clients').delete().eq('id', deleteId);
     if (error) alert('Error al eliminar: ' + error.message);
+    else logAudit('CLIENTE_ELIMINADO', `ID: ${deleteId}`);
     setDeleteId(null);
     fetchClientes();
   };
@@ -79,7 +82,7 @@ const Clientes = () => {
       </div>
 
       {/* Search */}
-      <div className="bg-base-100 p-4 rounded-xl shadow-sm">
+      <div className="glass-card p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
           <input
@@ -93,7 +96,7 @@ const Clientes = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-base-100 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
+      <div className="glass-card flex-1 overflow-hidden flex flex-col">
         {error && (
           <div className="alert alert-error m-4">
             <span>Error de conexión: {error}</span>

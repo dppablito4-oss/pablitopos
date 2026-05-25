@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, DollarSign, Plus, X, RefreshCw, ChevronDown, ChevronUp, CheckSquare, Square } from 'lucide-react';
+import { Search, DollarSign, Plus, X, RefreshCw, ChevronDown, ChevronUp, CheckSquare, Trash2, UserSearch } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logAudit } from '../services/auditService';
 
 const Fiados = () => {
   const [fiados, setFiados] = useState([]);
@@ -10,9 +11,15 @@ const Fiados = () => {
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
-  const [abonoModal, setAbonoModal] = useState(null); // { fiadoId, pendiente }
+  const [abonoModal, setAbonoModal] = useState(null);
   const [abonoAmount, setAbonoAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [createModal, setCreateModal] = useState(false);
+  const [fiadoClients, setFiadoClients] = useState([]);
+  const [fiadoClientSearch, setFiadoClientSearch] = useState('');
+  const [fiadoSelectedClient, setFiadoSelectedClient] = useState(null);
+  const [showFiadoClientDD, setShowFiadoClientDD] = useState(false);
+  const [fiadoItems, setFiadoItems] = useState([{ description: '', quantity: 1, unit_price: 0 }]);
 
   useEffect(() => { fetchFiados(); }, []);
 
@@ -79,6 +86,7 @@ const Fiados = () => {
     }).eq('id', abonoModal.fiadoId);
     setSaving(false);
     if (error) { alert('Error: ' + error.message); return; }
+    logAudit('FIADO_ABONO', `${abonoModal.code} | Abono: S/${monto.toFixed(2)}`);
     setAbonoModal(null);
     fetchFiados();
   };
@@ -92,7 +100,48 @@ const Fiados = () => {
       updated_at: new Date().toISOString(),
     }).eq('id', f.id);
     if (error) alert('Error: ' + error.message);
-    else fetchFiados();
+    else { logAudit('FIADO_PAGADO', `${f.code} | ${f.clients?.full_name}`); fetchFiados(); }
+  };
+
+  // === CREAR FIADO ===
+  const openCreateModal = () => {
+    supabase.from('clients').select('id, dni, full_name, phone').order('full_name').then(({ data }) => { if (data) setFiadoClients(data); });
+    setFiadoSelectedClient(null); setFiadoClientSearch('');
+    setFiadoItems([{ description: '', quantity: 1, unit_price: 0 }]);
+    setCreateModal(true);
+  };
+  const addFiadoItem = () => setFiadoItems([...fiadoItems, { description: '', quantity: 1, unit_price: 0 }]);
+  const removeFiadoItem = (i) => setFiadoItems(fiadoItems.filter((_, idx) => idx !== i));
+  const updateFiadoItem = (i, field, val) => { const u = [...fiadoItems]; u[i] = { ...u[i], [field]: val }; setFiadoItems(u); };
+  const fiadoNewTotal = fiadoItems.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.unit_price) || 0), 0);
+
+  const handleCreateFiado = async () => {
+    if (!fiadoSelectedClient) return alert('Selecciona un cliente.');
+    const valid = fiadoItems.filter(i => i.description.trim() && parseFloat(i.quantity) > 0 && parseFloat(i.unit_price) > 0);
+    if (valid.length === 0) return alert('Agrega al menos un item válido.');
+    setSaving(true);
+    try {
+      const { data: last } = await supabase.from('fiados').select('code').like('code', 'FD-%').order('created_at', { ascending: false }).limit(1).single();
+      const num = last ? parseInt(last.code.replace('FD-', '')) + 1 : 1;
+      const code = `FD-${String(num).padStart(4, '0')}`;
+      const tot = valid.reduce((s, i) => s + parseFloat(i.quantity) * parseFloat(i.unit_price), 0);
+      const { data: fd, error: e1 } = await supabase.from('fiados').insert([{
+        code, client_id: fiadoSelectedClient.id, total_bruto: parseFloat(tot.toFixed(2)),
+        total_pagado: 0, total_pendiente: parseFloat(tot.toFixed(2)), status: 'pendiente'
+      }]).select().single();
+      if (e1) throw e1;
+      const items = valid.map(i => ({
+        fiado_id: fd.id, description: i.description.toUpperCase(),
+        quantity: parseFloat(i.quantity), unit_price: parseFloat(i.unit_price),
+        subtotal: parseFloat((parseFloat(i.quantity) * parseFloat(i.unit_price)).toFixed(2)), status: 'pendiente'
+      }));
+      const { error: e2 } = await supabase.from('fiado_items').insert(items);
+      if (e2) throw e2;
+      logAudit('FIADO_CREADO', `${code} | ${fiadoSelectedClient.full_name} | S/${tot.toFixed(2)}`);
+      setCreateModal(false);
+      fetchFiados();
+    } catch (e) { alert('Error: ' + e.message); }
+    setSaving(false);
   };
 
   return (
@@ -106,13 +155,14 @@ const Fiados = () => {
             {' · '}{fiados.filter(f => f.status === 'pendiente').length} fiados activos
           </p>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={fetchFiados}>
-          <RefreshCw size={16} /> Actualizar
-        </button>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost btn-sm" onClick={fetchFiados}><RefreshCw size={16} /> Actualizar</button>
+          <button className="btn btn-primary btn-sm" onClick={openCreateModal}><Plus size={16} /> Nuevo Fiado</button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-base-100 p-4 rounded-xl shadow-sm flex flex-col md:flex-row gap-3">
+      <div className="glass-card p-4 flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
           <input
@@ -135,7 +185,7 @@ const Fiados = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-base-100 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
+      <div className="glass-card flex-1 overflow-hidden flex flex-col">
         {error && <div className="alert alert-error m-4"><span>Error: {error}</span></div>}
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -270,6 +320,84 @@ const Fiados = () => {
             </div>
           </div>
           <div className="modal-backdrop" onClick={() => setAbonoModal(null)}></div>
+        </div>
+      )}
+
+      {/* Modal Crear Fiado */}
+      {createModal && (
+        <div className="modal modal-open">
+          <div className="modal-box w-full max-w-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg">Nuevo Fiado</h3>
+              <button className="btn btn-sm btn-circle btn-ghost" onClick={() => setCreateModal(false)}><X size={18}/></button>
+            </div>
+
+            {/* Cliente */}
+            <div className="form-control mb-4">
+              <label className="label"><span className="label-text font-semibold">Cliente *</span></label>
+              <div className="relative">
+                <UserSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" size={16} />
+                <input type="text" placeholder="Buscar por nombre o DNI..." value={fiadoClientSearch}
+                  onChange={(e) => { setFiadoClientSearch(e.target.value); setShowFiadoClientDD(true); if (!e.target.value) setFiadoSelectedClient(null); }}
+                  onFocus={() => setShowFiadoClientDD(true)}
+                  onBlur={() => setTimeout(() => setShowFiadoClientDD(false), 200)}
+                  className="input input-bordered w-full pl-10" />
+                {showFiadoClientDD && fiadoClientSearch && (
+                  <div className="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                    {fiadoClients.filter(c => c.full_name?.toLowerCase().includes(fiadoClientSearch.toLowerCase()) || c.dni?.includes(fiadoClientSearch)).slice(0, 8).map(c => (
+                      <button key={c.id} className="w-full text-left px-3 py-2 hover:bg-base-200 text-sm flex justify-between"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setFiadoSelectedClient(c); setFiadoClientSearch(c.full_name); setShowFiadoClientDD(false); }}>
+                        <span className="font-medium">{c.full_name}</span>
+                        <span className="text-base-content/50 font-mono text-xs">{c.dni || '\u2014'}</span>
+                      </button>
+                    ))}
+                    {fiadoClients.filter(c => c.full_name?.toLowerCase().includes(fiadoClientSearch.toLowerCase()) || c.dni?.includes(fiadoClientSearch)).length === 0 && (
+                      <p className="text-sm text-base-content/40 text-center py-2">Sin resultados</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {fiadoSelectedClient && <p className="text-xs text-success mt-1">\u2713 {fiadoSelectedClient.full_name} \u2014 {fiadoSelectedClient.dni || 'Sin DNI'}</p>}
+            </div>
+
+            {/* Items */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-semibold text-sm">Items del fiado</span>
+                <button className="btn btn-xs btn-primary" onClick={addFiadoItem}><Plus size={14}/> Agregar</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="table table-sm w-full">
+                  <thead><tr><th>Descripción</th><th className="w-20">Cant.</th><th className="w-24">P. Unit.</th><th className="w-24">Subtotal</th><th className="w-10"></th></tr></thead>
+                  <tbody>
+                    {fiadoItems.map((item, i) => (
+                      <tr key={i}>
+                        <td><input type="text" className="input input-sm input-bordered w-full" placeholder="Descripción..." value={item.description} onChange={e => updateFiadoItem(i, 'description', e.target.value)} /></td>
+                        <td><input type="number" min="1" className="input input-sm input-bordered w-full" value={item.quantity} onChange={e => updateFiadoItem(i, 'quantity', e.target.value)} /></td>
+                        <td><input type="number" min="0" step="0.01" className="input input-sm input-bordered w-full" value={item.unit_price} onChange={e => updateFiadoItem(i, 'unit_price', e.target.value)} /></td>
+                        <td className="font-bold text-primary">S/ {((parseFloat(item.quantity)||0) * (parseFloat(item.unit_price)||0)).toFixed(2)}</td>
+                        <td>{fiadoItems.length > 1 && <button className="btn btn-xs btn-ghost text-error" onClick={() => removeFiadoItem(i)}><Trash2 size={14}/></button>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="text-right font-bold text-lg border-t border-base-200 pt-3 mb-2">
+              Total: <span className="text-primary">S/ {fiadoNewTotal.toFixed(2)}</span>
+            </div>
+
+            <div className="modal-action">
+              <button className="btn btn-ghost" onClick={() => setCreateModal(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleCreateFiado} disabled={saving}>
+                {saving ? <span className="loading loading-spinner loading-sm"/> : <><Plus size={16}/> Crear Fiado</>}
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={() => setCreateModal(false)}></div>
         </div>
       )}
     </div>

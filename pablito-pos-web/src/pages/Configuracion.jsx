@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Building2, Settings, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logAudit } from '../services/auditService';
+import { useCompany, TAX_REGIMES, REGIME_CONFIG } from '../contexts/CompanyContext';
 
 const Configuracion = () => {
+  const { refetchCompany } = useCompany();
   const [config, setConfig] = useState({
     name: '', ruc: '', address: '', phone: '', email: '', website: '',
     footer_message: '', include_igv: true, brand_color: '#4f46e5',
-    sol_user: 'MODDATOS', sol_pass: 'MODDATOS', cert_pem: '', production: false
+    sol_user: 'MODDATOS', sol_pass: 'MODDATOS', cert_pem: '', production: false,
+    tax_regime: 'nrus'
   });
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +43,8 @@ const Configuracion = () => {
         sol_user: data.sol_user || 'MODDATOS',
         sol_pass: data.sol_pass || 'MODDATOS',
         cert_pem: data.cert_pem || '',
-        production: data.production ?? false
+        production: data.production ?? false,
+        tax_regime: data.tax_regime || 'nrus'
       });
     }
     if (error && error.code !== 'PGRST116') setError(error.message);
@@ -64,6 +69,9 @@ const Configuracion = () => {
     setSaving(false);
     if (err) { setError(err.message); return; }
     setSaved(true);
+    logAudit('CONFIG_GUARDADA', config.name);
+    // Refrescar contexto global de empresa
+    if (typeof refetchCompany === 'function') refetchCompany();
     setTimeout(() => setSaved(false), 3000);
   };
 
@@ -101,7 +109,7 @@ const Configuracion = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Datos de Empresa */}
-        <div className="card bg-base-100 shadow-sm">
+        <div className="glass-card">
           <div className="card-body">
             <h3 className="card-title text-lg flex gap-2">
               <Building2 size={20}/> Datos de la Empresa
@@ -126,6 +134,25 @@ const Configuracion = () => {
                 value={config.address} onChange={e => setConfig({...config, address: e.target.value})} />
             </div>
 
+            {/* RÉGIMEN TRIBUTARIO */}
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Régimen Tributario</span></label>
+              <select className="select select-bordered" value={config.tax_regime}
+                onChange={e => setConfig({...config, tax_regime: e.target.value})}>
+                {Object.entries(TAX_REGIMES).map(([key, val]) => (
+                  <option key={val} value={val}>{REGIME_CONFIG[val].name}</option>
+                ))}
+              </select>
+              <label className="label">
+                <span className="label-text-alt">
+                  {REGIME_CONFIG[config.tax_regime]?.hasIgv ? '✅ IGV activo (18%)' : '❌ Sin IGV'}
+                  {' · '}
+                  {REGIME_CONFIG[config.tax_regime]?.canEmitFactura ? '✅ Facturas habilitadas' : '❌ Solo boletas'}
+                  {REGIME_CONFIG[config.tax_regime]?.monthlyLimit ? ` · Límite: S/${REGIME_CONFIG[config.tax_regime].monthlyLimit}` : ' · Sin límite mensual'}
+                </span>
+              </label>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="form-control">
                 <label className="label"><span className="label-text">Teléfono</span></label>
@@ -148,7 +175,7 @@ const Configuracion = () => {
         </div>
 
         {/* Preferencias */}
-        <div className="card bg-base-100 shadow-sm">
+        <div className="glass-card">
           <div className="card-body">
             <h3 className="card-title text-lg flex gap-2">
               <Settings size={20}/> Preferencias de Venta
@@ -190,7 +217,7 @@ const Configuracion = () => {
         </div>
 
         {/* Credenciales de Facturación SUNAT */}
-        <div className="card bg-base-100 shadow-sm col-span-1 md:col-span-2">
+        <div className="glass-card col-span-1 md:col-span-2">
           <div className="card-body">
             <h3 className="card-title text-lg flex gap-2">
               <Building2 size={20}/> Facturación Electrónica (SUNAT)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, X, Save, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { logAudit } from '../services/auditService';
 
 const EMPTY_FORM = { code: '', name: '', unit: 'UND', price: '', stock: '', active: true };
 
@@ -64,6 +65,7 @@ const Productos = () => {
     setSaving(false);
     if (err) { alert('Error: ' + err.message); return; }
     closeModal();
+    logAudit(editingId ? 'PRODUCTO_EDITADO' : 'PRODUCTO_CREADO', payload.name);
     fetchProductos();
   };
 
@@ -71,6 +73,7 @@ const Productos = () => {
     if (!deleteId) return;
     const { error } = await supabase.from('products').update({ active: false }).eq('id', deleteId);
     if (error) alert('Error: ' + error.message);
+    else logAudit('PRODUCTO_DESACTIVADO', `ID: ${deleteId}`);
     setDeleteId(null);
     fetchProductos();
   };
@@ -95,7 +98,7 @@ const Productos = () => {
       </div>
 
       {/* Search */}
-      <div className="bg-base-100 p-4 rounded-xl shadow-sm">
+      <div className="glass-card p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" size={20} />
           <input
@@ -109,7 +112,7 @@ const Productos = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-base-100 rounded-xl shadow-sm flex-1 overflow-hidden flex flex-col">
+      <div className="glass-card flex-1 overflow-hidden flex flex-col">
         {error && (
           <div className="alert alert-error m-4">
             <span>Error de conexión: {error}</span>

@@ -43,5 +43,33 @@ BEGIN
     EXECUTE format('CREATE POLICY "auth_delete" ON %I FOR DELETE TO authenticated USING (true)', t);
   END LOOP;
 END $$;
---
 
+-- ==========================================
+-- POLÍTICAS ANON PARA VERIFICACIÓN PÚBLICA
+-- ==========================================
+-- La página de verificación de comprobantes es pública (sin login).
+-- Necesita poder leer sales, sale_items, company_profile y clients.
+
+DO $$
+DECLARE
+  t TEXT;
+BEGIN
+  FOR t IN SELECT unnest(ARRAY['sales','sale_items','company_profile','clients'])
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "anon_select" ON %I', t);
+    EXECUTE format('CREATE POLICY "anon_select" ON %I FOR SELECT TO anon USING (true)', t);
+  END LOOP;
+END $$;
+
+-- ==========================================
+-- FUNCIÓN PARA DESCONTAR STOCK (ATÓMICO)
+-- ==========================================
+-- Evita race conditions cuando múltiples cajeros venden al mismo tiempo.
+CREATE OR REPLACE FUNCTION decrement_stock(p_product_id BIGINT, p_quantity INTEGER)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE products
+  SET stock = GREATEST(0, stock - p_quantity)
+  WHERE id = p_product_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

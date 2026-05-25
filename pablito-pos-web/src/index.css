@@ -1,32 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   PABLITO POS — Clean Dark Design System
+   ======================================== */
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
 #root {
   width: 100%;
 }
 
-/* Print Styles */
+/* ========================================
+   MINIMAL SCROLLBARS
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(var(--bc) / 0.15);
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(var(--bc) / 0.25);
+}
+
+/* Selection */
+::selection {
+  background: oklch(var(--p) / 0.3);
+}
+
+/* ========================================
+   COMPONENT REFINEMENTS
+   ======================================== */
+
+/* Cards — clean, minimal */
+.card {
+  border-radius: 16px;
+  border: 1px solid oklch(var(--bc) / 0.06);
+}
+
+/* Inputs — softer */
+.input,
+.select,
+.textarea {
+  border-radius: 12px !important;
+  transition: all 0.2s ease !important;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: oklch(var(--p) / 0.5) !important;
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1) !important;
+  outline: none !important;
+}
+
+/* Buttons — rounded, smooth */
+.btn {
+  border-radius: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all 0.15s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px oklch(var(--p) / 0.3);
+}
+
+/* Tables — clean lines */
+.table thead th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  opacity: 0.5;
+}
+
+.table tbody tr {
+  transition: background 0.15s ease;
+}
+
+/* Modal — elevated */
+.modal-box {
+  border-radius: 20px;
+  border: 1px solid oklch(var(--bc) / 0.08);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* Badges — compact */
+.badge {
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+/* Progress — slim */
+.progress {
+  border-radius: 100px;
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.glass-card {
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--bc) / 0.06);
+  border-radius: 16px;
+  padding: 0;
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
 @media print {
-  /* Ocultar todo lo que no sea para imprimir */
   body * {
     visibility: hidden;
   }
@@ -35,15 +145,15 @@ body {
     visibility: visible;
   }
 
-  /* Resetear margenes del componente impreso al top-left */
   .print\:block {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    background: white !important;
+    color: black !important;
   }
 
-  /* Formato Ticket 80mm */
   @page {
     margin: 0;
   }
@@ -54,7 +164,6 @@ body {
     padding: 5mm;
   }
 
-  /* Formato A4 */
   .print-a4 {
     width: 210mm;
     margin: 0 auto;

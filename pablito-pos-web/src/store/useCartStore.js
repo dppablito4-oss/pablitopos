@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-
-const IGV_RATE = 0.18;
+import { persist } from 'zustand/middleware';
 
 export const EMISION_TYPES = {
   BOLETA: 'Boleta Electrónica',
@@ -15,7 +14,7 @@ export const PRINT_FORMATS = {
   A4: 'A4'
 };
 
-export const useCartStore = create((set, get) => ({
+export const useCartStore = create(persist((set, get) => ({
   cart: [],
   emisionType: EMISION_TYPES.BOLETA,
   printFormat: PRINT_FORMATS.TICKET,
@@ -55,17 +54,25 @@ export const useCartStore = create((set, get) => ({
 
   clearCart: () => set({ cart: [], emisionType: EMISION_TYPES.BOLETA }),
 
-  getTotals: () => {
-    const { cart } = get();
-    const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
-    const igv = subtotal * IGV_RATE;
-    const total = subtotal + igv;
+  getTotals: (hasIgv = false) => {
+    const { cart, emisionType } = get();
+    const sumaPrecio = cart.reduce((sum, item) => sum + item.subtotal, 0);
+    const isBoleta = emisionType === EMISION_TYPES.BOLETA || emisionType === EMISION_TYPES.FACTURA;
     
+    // Solo descomponer IGV si el régimen lo requiere Y es boleta/factura
+    const shouldDecomposeIgv = hasIgv && isBoleta;
+    const total = sumaPrecio;
+    const baseImponible = shouldDecomposeIgv ? parseFloat((sumaPrecio / 1.18).toFixed(2)) : sumaPrecio;
+    const igv = shouldDecomposeIgv ? parseFloat((sumaPrecio - baseImponible).toFixed(2)) : 0;
+
     return {
-      subtotal: subtotal.toFixed(2),
+      subtotal: baseImponible.toFixed(2),
       igv: igv.toFixed(2),
       total: total.toFixed(2),
       itemCount: cart.reduce((count, item) => count + item.quantity, 0)
     };
   }
+}), {
+  name: 'pablito-cart',
+  partialize: (state) => ({ cart: state.cart, emisionType: state.emisionType, printFormat: state.printFormat }),
 }));
