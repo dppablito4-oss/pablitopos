@@ -163,7 +163,7 @@ const Verificacion = () => {
               </span>
             </div>
             <p className="text-2xl font-bold font-mono tracking-wide" style={{ color: '#e2e8f0' }}>
-              {sale.series}-{String(sale.number).padStart(6, '0')}
+              {sale.series}-{String(sale.number).padStart(8, '0')}
             </p>
             <p className="text-xs mt-2" style={{ color: '#64748b' }}>
               {formatDate(sale.datetime)}

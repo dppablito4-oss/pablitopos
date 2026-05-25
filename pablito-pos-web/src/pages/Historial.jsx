@@ -111,8 +111,10 @@ const Historial = () => {
       items = data || [];
       setItemsCache(prev => ({ ...prev, [v.id]: items }));
     }
-    const tipo = v.series?.startsWith('B') ? 'BOLETA ELECTR\u00d3NICA' : v.is_proforma ? 'PROFORMA' : 'NOTA DE VENTA';
-    const html = `<html><head><title>${v.series}-${v.number}</title>
+    const tipo = v.series?.startsWith('B') ? 'BOLETA DE VENTA ELECTR\u00d3NICA' : v.series?.startsWith('F') ? 'FACTURA ELECTR\u00d3NICA' : v.is_proforma ? 'PROFORMA' : 'NOTA DE VENTA';
+    const tipoCod = v.series?.startsWith('F') ? '01' : '03';
+    const filename = `${company?.ruc || '00000000000'}-${tipoCod}-${v.series}-${String(v.number).padStart(8,'0')}`;
+    const html = `<html><head><title>${filename}</title>
       <style>body{font-family:monospace;max-width:320px;margin:auto;padding:20px;font-size:12px}
       table{width:100%;border-collapse:collapse}td,th{padding:3px;text-align:left;border-bottom:1px solid #ddd}
       .r{text-align:right}.c{text-align:center}.b{font-weight:bold}h2{margin:0}hr{border:1px dashed #999}</style>
@@ -121,7 +123,7 @@ const Historial = () => {
       <p>RUC: ${company?.ruc || '\u2014'}</p>
       <p>${company?.address || ''}</p>
       <p class="b">${tipo}</p>
-      <p class="b">${v.series}-${String(v.number).padStart(6,'0')}</p>
+      <p class="b">${v.series}-${String(v.number).padStart(8,'0')}</p>
       <p>${new Date(v.datetime).toLocaleString('es-PE')}</p></div><hr>
       ${v.clients?.full_name ? `<p><b>Cliente:</b> ${v.clients.full_name}</p><p><b>Doc:</b> ${v.clients.dni||'\u2014'}</p>` : ''}
       <table><tr><th>Cant</th><th>Descripci\u00f3n</th><th class="r">P.U.</th><th class="r">Total</th></tr>
@@ -203,7 +205,7 @@ const Historial = () => {
                 ) : filtered.map((v) => (
                   <React.Fragment key={v.id}>
                     <tr className="hover">
-                      <td className="font-mono font-bold">{v.series}-{String(v.number).padStart(6, '0')}</td>
+                      <td className="font-mono font-bold">{v.series}-{String(v.number).padStart(8, '0')}</td>
                       <td className="text-sm">{new Date(v.datetime).toLocaleString('es-PE')}</td>
                       <td>{v.clients?.full_name || <span className="text-base-content/40">Cliente varios</span>}</td>
                       <td>{getTipoBadge(v)}</td>

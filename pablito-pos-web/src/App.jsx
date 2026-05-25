@@ -12,8 +12,15 @@ import Configuracion from './pages/Configuracion';
 import Fiados from './pages/Fiados';
 import Verificacion from './pages/Verificacion';
 import { CompanyProvider } from './contexts/CompanyContext';
+import { pingSunatApi } from './lib/sunatService';
+import { useEffect } from 'react';
 
 function App() {
+  useEffect(() => {
+    // Ping al servidor de facturación (Render) para evitar el Cold-Start
+    pingSunatApi();
+  }, []);
+
   return (
     <AuthProvider>
     <CompanyProvider>

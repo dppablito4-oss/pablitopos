@@ -2,6 +2,15 @@ import { supabase } from './supabase';
 
 const SUNAT_API_URL = import.meta.env.VITE_SUNAT_API_URL || 'https://pablitopos.onrender.com';
 
+// Ping para despertar el servidor Render
+export const pingSunatApi = async () => {
+  try {
+    fetch(`${SUNAT_API_URL}/ping`, { method: 'GET' }).catch(() => {});
+  } catch (e) {
+    // Ignoramos errores, es solo un ping
+  }
+};
+
 export const generarHashSunat = async (saleData, items) => {
   // 1. Obtener la configuración activa de la empresa
   const { data: company } = await supabase
