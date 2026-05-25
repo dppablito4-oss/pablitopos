@@ -168,7 +168,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             <p style={{ margin: '0' }}>{isBoleta ? 'Boleta de Venta Electrónica' : emisionType}.</p>
             <p style={{ margin: '6px 0 0', fontWeight: 'bold' }}>¡Gracias por su compra!</p>
             <p style={{ margin: '2px 0 0' }}>Consulte su comprobante en:</p>
-            <p style={{ margin: '0' }}>facturacion.sypablitodp.site</p>
+            <p style={{ margin: '0' }}>facturacion.sypablitodp.site/#/verificacion</p>
           </div>
         </div>
       </>
@@ -271,7 +271,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             )}
             <p style={{ margin: '0', color: '#555' }}>{legalText}</p>
             <p style={{ margin: '0', color: '#555' }}>Representación impresa de la {isBoleta ? 'Boleta de Venta Electrónica' : emisionType}.</p>
-            <p style={{ margin: '4px 0 0', color: '#555' }}>Consulte su comprobante en: facturacion.sypablitodp.site</p>
+            <p style={{ margin: '4px 0 0', color: '#555' }}>Consulte su comprobante en: facturacion.sypablitodp.site/#/verificacion</p>
           </div>
           <div style={{ textAlign: 'center' }}>
             <QRCodeSVG value={qrValue} size={100} />
