@@ -62,7 +62,14 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
   // ====== TICKET 80mm ======
   if (isTicket) {
     return (
-      <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50">
+      <>
+        <style>{`
+          @media print {
+            @page { size: 80mm auto; margin: 0; }
+            body { margin: 0; }
+          }
+        `}</style>
+        <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50">
         <div style={{ maxWidth: '302px', margin: '0 auto', padding: '10px 8px', fontFamily: 'monospace', fontSize: '11px', lineHeight: '1.4' }}>
           
           {/* CABECERA EMISOR */}
@@ -164,13 +171,19 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             <p style={{ margin: '0' }}>facturacion.sypablitodp.site</p>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   // ====== FORMATO A4 ======
   return (
-    <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50">
+    <>
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+        }
+      `}</style>
+      <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50">
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 50px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '12px', lineHeight: '1.5' }}>
         
         {/* CABECERA A4 - Estilo comprobante formal */}
@@ -266,7 +279,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

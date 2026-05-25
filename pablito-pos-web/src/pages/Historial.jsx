@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Eye, RefreshCw, ChevronDown, ChevronUp, Send, Printer } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Printer, Send, ChevronDown, ChevronUp, Eye, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { generarHashSunat } from '../lib/sunatService';
+import PrintReceipt from '../components/PrintReceipt';
+import { useCompany, REGIME_CONFIG } from '../contexts/CompanyContext';
 
 const FILTER_TYPES = [
   { label: 'Todos', value: 'all' },
@@ -19,14 +21,12 @@ const Historial = () => {
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
-  const [company, setCompany] = useState(null);
+  const { company } = useCompany();
 
-  useEffect(() => { fetchVentas(); fetchCompany(); }, []);
+  // Estados para impresión
+  const [printData, setPrintData] = useState(null);
 
-  const fetchCompany = async () => {
-    const { data } = await supabase.from('company_profile').select('*').eq('is_active', true).limit(1).single();
-    if (data) setCompany(data);
-  };
+  useEffect(() => { fetchVentas(); }, []);
 
   const fetchVentas = async () => {
     setIsLoading(true);
@@ -119,44 +119,50 @@ const Historial = () => {
     })
     .reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
 
-  const handleReprint = async (v) => {
+  const handleReprint = async (v, format) => {
     let items = itemsCache[v.id];
     if (!items) {
       const { data } = await supabase.from('sale_items').select('*').eq('sale_id', v.id);
       items = data || [];
       setItemsCache(prev => ({ ...prev, [v.id]: items }));
     }
-    const tipo = v.series?.startsWith('B') ? 'BOLETA DE VENTA ELECTR\u00d3NICA' : v.series?.startsWith('F') ? 'FACTURA ELECTR\u00d3NICA' : v.is_proforma ? 'PROFORMA' : 'NOTA DE VENTA';
-    const tipoCod = v.series?.startsWith('F') ? '01' : '03';
-    const filename = `${company?.ruc || '00000000000'}-${tipoCod}-${v.series}-${String(v.number).padStart(8,'0')}`;
-    const html = `<html><head><title>${filename}</title>
-      <style>body{font-family:monospace;max-width:320px;margin:auto;padding:20px;font-size:12px}
-      table{width:100%;border-collapse:collapse}td,th{padding:3px;text-align:left;border-bottom:1px solid #ddd}
-      .r{text-align:right}.c{text-align:center}.b{font-weight:bold}h2{margin:0}hr{border:1px dashed #999}</style>
-      </head><body>
-      <div class="c"><h2>${company?.name || 'PABLITO POS'}</h2>
-      <p>RUC: ${company?.ruc || '\u2014'}</p>
-      <p>${company?.address || ''}</p>
-      <p class="b">${tipo}</p>
-      <p class="b">${v.series}-${String(v.number).padStart(8,'0')}</p>
-      <p>${new Date(v.datetime).toLocaleString('es-PE')}</p></div><hr>
-      ${v.clients?.full_name ? `<p><b>Cliente:</b> ${v.clients.full_name}</p><p><b>Doc:</b> ${v.clients.dni||'\u2014'}</p>` : ''}
-      <table><tr><th>Cant</th><th>Descripci\u00f3n</th><th class="r">P.U.</th><th class="r">Total</th></tr>
-      ${items.map(i=>`<tr><td>${i.quantity}</td><td>${i.description}</td><td class="r">${parseFloat(i.unit_price).toFixed(2)}</td><td class="r">${parseFloat(i.subtotal).toFixed(2)}</td></tr>`).join('')}
-      </table><hr>
-      <p class="r">Subtotal: S/ ${parseFloat(v.subtotal).toFixed(2)}</p>
-      <p class="r">IGV: S/ ${parseFloat(v.igv).toFixed(2)}</p>
-      <p class="r b" style="font-size:1.3em">TOTAL: S/ ${parseFloat(v.total).toFixed(2)}</p>
-      ${v.serial_seguridad ? `<p class="c" style="font-size:0.7em">Hash: ${v.serial_seguridad}</p>`:''}
-      <p class="c">\u00a1Gracias por su compra!</p>
-      <script>window.onload=()=>window.print();</script></body></html>`;
-    const win = window.open('', '_blank');
-    win.document.write(html);
-    win.document.close();
+    
+    const emisionType = v.series?.startsWith('B') ? 'Boleta Electrónica' 
+                      : v.series?.startsWith('F') ? 'Factura Electrónica' 
+                      : v.is_proforma ? 'Proforma' : 'Nota de Venta';
+
+    const receiptData = {
+      company: { 
+        ruc: company?.ruc || "20000000001", 
+        razonSocial: company?.name || "PABLITO POS",
+        direccion: company?.address || "AV PRINCIPAL S/N",
+        logo_base64: company?.logo_base64 || null
+      },
+      cliente: v.clients 
+        ? { numDoc: v.clients.dni || "00000000", rznSocial: v.clients.full_name }
+        : { numDoc: "00000000", rznSocial: "CLIENTE VARIOS" },
+      serie: v.series,
+      correlativo: v.number,
+      fechaEmision: v.datetime,
+      hash: v.serial_seguridad
+    };
+
+    setPrintData({
+      cart: items.map(i => ({ name: i.description, quantity: i.quantity, price: parseFloat(i.unit_price), subtotal: parseFloat(i.subtotal) })),
+      totals: { subtotal: parseFloat(v.subtotal).toFixed(2), igv: parseFloat(v.igv).toFixed(2), total: parseFloat(v.total).toFixed(2) },
+      emisionType,
+      receiptData,
+      format
+    });
+
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <>
+      <div className="flex flex-col h-full gap-4 print:hidden">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -241,9 +247,15 @@ const Historial = () => {
                               <Send size={16} />
                             </button>
                           )}
-                          <button className="btn btn-sm btn-ghost text-info" onClick={() => handleReprint(v)} title="Reimprimir Ticket / Guardar PDF">
-                            <Printer size={16}/>
-                          </button>
+                          <div className="dropdown dropdown-end">
+                            <label tabIndex={0} className="btn btn-sm btn-ghost text-info" title="Imprimir Comprobante">
+                              <Printer size={16}/>
+                            </label>
+                            <ul tabIndex={0} className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-36">
+                              <li><a onClick={() => handleReprint(v, 'TICKET')}>Imprimir Ticket (80mm)</a></li>
+                              <li><a onClick={() => handleReprint(v, 'A4')}>Formato A4 (PDF)</a></li>
+                            </ul>
+                          </div>
                           {v.xml_base64 && (
                             <button 
                               className="btn btn-sm btn-ghost text-success" 
@@ -303,6 +315,19 @@ const Historial = () => {
         )}
       </div>
     </div>
+    
+    {/* Componente Oculto para Impresión */}
+    {printData && (
+      <PrintReceipt 
+        cart={printData.cart} 
+        totals={printData.totals} 
+        emisionType={printData.emisionType} 
+        printFormat={printData.format} 
+        receiptData={printData.receiptData}
+        regimeConfig={REGIME_CONFIG[company?.tax_regime || 'nrus']}
+      />
+    )}
+  </>
   );
 };
 
