@@ -144,26 +144,26 @@ const Configuracion = () => {
             </h3>
             <div className="divider mt-0 mb-2"/>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text font-semibold">Nombre / Razón Social *</span></label>
-              <input type="text" className="input input-bordered" placeholder="Ej. Bodega La Esquina"
+              <input type="text" className="input input-bordered w-full" placeholder="Ej. Bodega La Esquina"
                 value={config.name} onChange={e => setConfig({...config, name: e.target.value})} />
             </div>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text">RUC / DNI</span></label>
-              <input type="text" maxLength={11} className="input input-bordered" placeholder="Ej. 20123456789"
+              <input type="text" maxLength={11} className="input input-bordered w-full" placeholder="Ej. 20123456789"
                 value={config.ruc} onChange={e => setConfig({...config, ruc: e.target.value.replace(/\D/g,'')})} />
             </div>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text">Dirección</span></label>
-              <input type="text" className="input input-bordered" placeholder="Dirección del local"
+              <input type="text" className="input input-bordered w-full" placeholder="Dirección del local"
                 value={config.address} onChange={e => setConfig({...config, address: e.target.value})} />
             </div>
 
             {/* LOGO UPLOAD */}
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text font-semibold">Logo de la Empresa</span></label>
               <div className="flex items-center gap-4">
                 {config.logo_base64 && <img src={config.logo_base64} alt="Logo" className="w-16 h-16 object-contain bg-white rounded border p-1" />}
@@ -174,9 +174,9 @@ const Configuracion = () => {
             </div>
 
             {/* RÉGIMEN TRIBUTARIO */}
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text font-semibold">Régimen Tributario</span></label>
-              <select className="select select-bordered" value={config.tax_regime}
+              <select className="select select-bordered w-full" value={config.tax_regime}
                 onChange={e => setConfig({...config, tax_regime: e.target.value})}>
                 {Object.entries(TAX_REGIMES).map(([key, val]) => (
                   <option key={val} value={val}>{REGIME_CONFIG[val].name}</option>
@@ -193,21 +193,21 @@ const Configuracion = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="form-control">
+              <div className="form-control w-full">
                 <label className="label"><span className="label-text">Teléfono</span></label>
-                <input type="text" className="input input-bordered" placeholder="9XXXXXXXX"
+                <input type="text" className="input input-bordered w-full" placeholder="9XXXXXXXX"
                   value={config.phone} onChange={e => setConfig({...config, phone: e.target.value})} />
               </div>
-              <div className="form-control">
+              <div className="form-control w-full">
                 <label className="label"><span className="label-text">Email</span></label>
-                <input type="email" className="input input-bordered" placeholder="correo@empresa.com"
+                <input type="email" className="input input-bordered w-full" placeholder="correo@empresa.com"
                   value={config.email} onChange={e => setConfig({...config, email: e.target.value})} />
               </div>
             </div>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text">Sitio Web</span></label>
-              <input type="text" className="input input-bordered" placeholder="www.miempresa.com"
+              <input type="text" className="input input-bordered w-full" placeholder="www.miempresa.com"
                 value={config.website} onChange={e => setConfig({...config, website: e.target.value})} />
             </div>
           </div>
@@ -221,7 +221,7 @@ const Configuracion = () => {
             </h3>
             <div className="divider mt-0 mb-2"/>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label cursor-pointer">
                 <div>
                   <span className="label-text font-semibold">Incluir IGV (18%) en precios</span>
@@ -234,7 +234,7 @@ const Configuracion = () => {
 
             <div className="divider my-1"/>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text font-semibold">Color de marca</span></label>
               <div className="flex items-center gap-3">
                 <input type="color" className="w-12 h-10 rounded cursor-pointer border border-base-300"
@@ -245,9 +245,9 @@ const Configuracion = () => {
 
             <div className="divider my-1"/>
 
-            <div className="form-control">
+            <div className="form-control w-full">
               <label className="label"><span className="label-text font-semibold">Mensaje al pie del ticket</span></label>
-              <textarea className="textarea textarea-bordered h-28"
+              <textarea className="textarea textarea-bordered w-full h-28"
                 placeholder="Ej: ¡Gracias por su preferencia! Vuelva pronto."
                 value={config.footer_message}
                 onChange={e => setConfig({...config, footer_message: e.target.value})} />
@@ -265,23 +265,23 @@ const Configuracion = () => {
             <div className="divider mt-0 mb-2"/>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="form-control">
+              <div className="form-control w-full">
                 <label className="label"><span className="label-text font-semibold">Usuario SOL</span></label>
-                <input type="text" className="input input-bordered" placeholder="Ej: MODDATOS"
+                <input type="text" className="input input-bordered w-full" placeholder="Ej: MODDATOS"
                   value={config.sol_user} onChange={e => setConfig({...config, sol_user: e.target.value})} />
               </div>
               
-              <div className="form-control">
+              <div className="form-control w-full">
                 <label className="label"><span className="label-text font-semibold">Clave SOL</span></label>
-                <input type="password" className="input input-bordered" placeholder="Ej: MODDATOS"
+                <input type="password" className="input input-bordered w-full" placeholder="Ej: MODDATOS"
                   value={config.sol_pass} onChange={e => setConfig({...config, sol_pass: e.target.value})} />
               </div>
 
-              <div className="form-control">
+              <div className="form-control w-full">
                 <label className="label cursor-pointer h-full flex items-end pb-3">
                   <div className="flex flex-col">
                     <span className="label-text font-semibold">Modo Producción</span>
-                    <span className="text-xs text-base-content/50">Activar para enviar comprobantes reales</span>
+                    <span className="text-xs text-base-content/50">Activar para comprobantes reales</span>
                   </div>
                   <input type="checkbox" className="toggle toggle-secondary" checked={config.production}
                     onChange={e => setConfig({...config, production: e.target.checked})} />
@@ -289,7 +289,7 @@ const Configuracion = () => {
               </div>
             </div>
 
-            <div className="form-control mt-4">
+            <div className="form-control w-full mt-4">
               <label className="label">
                 <span className="label-text font-semibold">Certificado Digital (PEM)</span>
                 <span className="text-xs text-primary cursor-pointer hover:underline">
@@ -306,7 +306,7 @@ const Configuracion = () => {
                   <label htmlFor="cert-upload" className="cursor-pointer">📁 Cargar archivo .pem</label>
                 </span>
               </label>
-              <textarea className="textarea textarea-bordered font-mono text-xs h-32"
+              <textarea className="textarea textarea-bordered w-full font-mono text-xs h-32"
                 placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
                 value={config.cert_pem}
                 onChange={e => setConfig({...config, cert_pem: e.target.value})} />
