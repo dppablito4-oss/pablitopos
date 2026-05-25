@@ -53,7 +53,11 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
   const horaStr = fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const totalNum = parseFloat(totals.total);
   const fechaEmisionShort = receiptData.fechaEmision.split('T')[0];
-  const qrUrl = `https://facturacion.sypablitodp.site/#/verificacion?ruc=${receiptData.company.ruc}&serie=${receiptData.serie}&correlativo=${receiptData.correlativo}&total=${totalNum.toFixed(2)}&fecha=${fechaEmisionShort}`;
+  
+  // Cadena oficial QR SUNAT: RUC | TIPO_DOC | SERIE | CORRELATIVO | IGV | TOTAL | FECHA | TIPO_DOC_CLIENTE | NUM_DOC_CLIENTE | HASH |
+  const tipoDocCod = emisionType === 'Factura Electrónica' ? '01' : '03';
+  const tipoDocCli = receiptData.cliente.numDoc.length === 11 ? '6' : (receiptData.cliente.numDoc.length === 8 ? '1' : '0');
+  const qrValue = `${receiptData.company.ruc}|${tipoDocCod}|${receiptData.serie}|${receiptData.correlativo}|${totals.igv}|${totals.total}|${fechaEmisionShort}|${tipoDocCli}|${receiptData.cliente.numDoc}|${receiptData.hash || ''}|`;
 
   // ====== TICKET 80mm ======
   if (isTicket) {
@@ -134,7 +138,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
 
           {/* QR + HASH */}
           <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <QRCodeSVG value={qrUrl} size={110} style={{ margin: '0 auto' }} />
+            <QRCodeSVG value={qrValue} size={110} style={{ margin: '0 auto' }} />
             {receiptData.hash && (
               <p style={{ margin: '4px 0 0', fontSize: '8px', wordBreak: 'break-all' }}>
                 Hash: {receiptData.hash}
@@ -249,7 +253,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             <p style={{ margin: '4px 0 0', color: '#555' }}>Consulte su comprobante en: facturacion.sypablitodp.site</p>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <QRCodeSVG value={qrUrl} size={100} />
+            <QRCodeSVG value={qrValue} size={100} />
             <p style={{ margin: '4px 0 0', fontSize: '8px', color: '#888' }}>Código Verificación</p>
           </div>
         </div>
