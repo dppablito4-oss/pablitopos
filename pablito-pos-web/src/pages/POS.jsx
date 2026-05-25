@@ -155,7 +155,8 @@ const POS = () => {
         company: { 
           ruc: company?.ruc || "20000000001", 
           razonSocial: company?.name || "PABLITO POS",
-          direccion: company?.address || "AV PRINCIPAL S/N"
+          direccion: company?.address || "AV PRINCIPAL S/N",
+          logo_base64: company?.logo_base64 || null
         },
         cliente: selectedClient 
           ? { numDoc: selectedClient.dni || "00000000", rznSocial: selectedClient.full_name }

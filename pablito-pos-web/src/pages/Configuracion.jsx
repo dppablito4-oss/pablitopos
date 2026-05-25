@@ -10,7 +10,7 @@ const Configuracion = () => {
     name: '', ruc: '', address: '', phone: '', email: '', website: '',
     footer_message: '', include_igv: true, brand_color: '#4f46e5',
     sol_user: 'MODDATOS', sol_pass: 'MODDATOS', cert_pem: '', production: false,
-    tax_regime: 'nrus'
+    tax_regime: 'nrus', logo_base64: ''
   });
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,7 +44,8 @@ const Configuracion = () => {
         sol_pass: data.sol_pass || 'MODDATOS',
         cert_pem: data.cert_pem || '',
         production: data.production ?? false,
-        tax_regime: data.tax_regime || 'nrus'
+        tax_regime: data.tax_regime || 'nrus',
+        logo_base64: data.logo_base64 || ''
       });
     }
     if (error && error.code !== 'PGRST116') setError(error.message);
@@ -73,6 +74,33 @@ const Configuracion = () => {
     // Refrescar contexto global de empresa
     if (typeof refetchCompany === 'function') refetchCompany();
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 300;
+        const scaleSize = Math.min(MAX_WIDTH / img.width, 1);
+        canvas.width = img.width * scaleSize;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        const dataUrl = canvas.toDataURL('image/png', 0.8);
+        setConfig({ ...config, logo_base64: dataUrl });
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   if (isLoading) return (
@@ -132,6 +160,17 @@ const Configuracion = () => {
               <label className="label"><span className="label-text">Dirección</span></label>
               <input type="text" className="input input-bordered" placeholder="Dirección del local"
                 value={config.address} onChange={e => setConfig({...config, address: e.target.value})} />
+            </div>
+
+            {/* LOGO UPLOAD */}
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Logo de la Empresa</span></label>
+              <div className="flex items-center gap-4">
+                {config.logo_base64 && <img src={config.logo_base64} alt="Logo" className="w-16 h-16 object-contain bg-white rounded border p-1" />}
+                <input type="file" accept="image/png, image/jpeg" className="file-input file-input-bordered file-input-sm w-full" onChange={handleLogoUpload} />
+                {config.logo_base64 && <button className="btn btn-sm btn-ghost text-error" onClick={() => setConfig({...config, logo_base64: ''})}>X</button>}
+              </div>
+              <label className="label"><span className="label-text-alt text-base-content/50">Se convertirá automáticamente para tickets térmicos (max 300px).</span></label>
             </div>
 
             {/* RÉGIMEN TRIBUTARIO */}

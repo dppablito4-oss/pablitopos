@@ -67,6 +67,9 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
           
           {/* CABECERA EMISOR */}
           <div style={{ textAlign: 'center' }}>
+            {receiptData.company.logo_base64 && (
+              <img src={receiptData.company.logo_base64} alt="Logo" style={{ maxWidth: '140px', maxHeight: '60px', margin: '0 auto 8px', display: 'block', filter: 'grayscale(100%)' }} />
+            )}
             <p style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 2px' }}>{receiptData.company.razonSocial}</p>
             <p style={{ margin: '0' }}>RUC: {receiptData.company.ruc}</p>
             <p style={{ margin: '0', fontSize: '10px' }}>{receiptData.company.direccion}</p>
@@ -173,9 +176,14 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
         {/* CABECERA A4 - Estilo comprobante formal */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
           {/* Izquierda: Empresa */}
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px' }}>{receiptData.company.razonSocial}</h1>
-            <p style={{ margin: '0', fontSize: '11px', color: '#555' }}>{receiptData.company.direccion}</p>
+          <div style={{ flex: 1, display: 'flex', gap: '15px', alignItems: 'center' }}>
+            {receiptData.company.logo_base64 && (
+              <img src={receiptData.company.logo_base64} alt="Logo" style={{ maxWidth: '120px', maxHeight: '80px', objectFit: 'contain' }} />
+            )}
+            <div>
+              <h1 style={{ fontSize: '22px', fontWeight: 'bold', margin: '0 0 4px' }}>{receiptData.company.razonSocial}</h1>
+              <p style={{ margin: '0', fontSize: '11px', color: '#555' }}>{receiptData.company.direccion}</p>
+            </div>
           </div>
           {/* Derecha: RUC y Tipo Doc */}
           <div style={{ border: '2px solid #1a56db', padding: '12px 20px', textAlign: 'center', minWidth: '220px' }}>
