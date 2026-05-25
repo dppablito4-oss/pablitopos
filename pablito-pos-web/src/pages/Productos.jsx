@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, X, Save, Package } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, X, Save, Package, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../services/auditService';
+import * as XLSX from 'xlsx';
 
 const EMPTY_FORM = { code: '', name: '', unit: 'UND', price: '', stock: '', active: true };
 
@@ -78,6 +79,56 @@ const Productos = () => {
     fetchProductos();
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const workbook = XLSX.read(bstr, { type: 'binary' });
+        const wsname = workbook.SheetNames[0];
+        const ws = workbook.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        
+        // Asumimos formato (Fila 1 son cabeceras): Código | Nombre | Unidad | Precio | Stock
+        const newProducts = [];
+        for (let i = 1; i < data.length; i++) {
+          const row = data[i];
+          if (!row || !row[1]) continue; // Nombre es obligatorio (Columna B / Índice 1)
+          newProducts.push({
+            code: row[0] ? row[0].toString().trim().toUpperCase() : null,
+            name: row[1].toString().trim().toUpperCase(),
+            unit: row[2] ? row[2].toString().trim().toUpperCase() : 'UND',
+            price: parseFloat(row[3]) || 0,
+            stock: parseInt(row[4]) || 0,
+            active: true
+          });
+        }
+
+        if (newProducts.length === 0) {
+          alert('No se encontraron productos válidos en el archivo. Recuerda el orden: Código, Nombre, Unidad, Precio, Stock.');
+          setIsLoading(false);
+          return;
+        }
+
+        const { error } = await supabase.from('products').insert(newProducts);
+        if (error) throw error;
+
+        alert(`¡Se importaron ${newProducts.length} productos correctamente!`);
+        logAudit('IMPORTACION_EXCEL', `${newProducts.length} productos agregados`);
+        fetchProductos();
+      } catch (err) {
+        alert('Error al importar el archivo: ' + err.message);
+        setIsLoading(false);
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = null; // Resetear input
+  };
+
   const getStockBadge = (stock) => {
     if (stock <= 0) return <span className="badge badge-error">Sin stock</span>;
     if (stock < 10) return <span className="badge badge-warning">{stock}</span>;
@@ -92,9 +143,16 @@ const Productos = () => {
           <h2 className="text-2xl font-bold">Gestión de Productos</h2>
           <p className="text-base-content/60 text-sm">{productos.filter(p=>p.active).length} productos activos</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>
-          <Plus size={20} /> Nuevo Producto
-        </button>
+        <div className="flex gap-2">
+          <label className="btn btn-outline btn-secondary">
+            <Upload size={20} />
+            <span className="hidden sm:inline">Importar Excel</span>
+            <input type="file" accept=".xlsx, .xls, .csv" className="hidden" onChange={handleFileUpload} />
+          </label>
+          <button className="btn btn-primary" onClick={openCreate}>
+            <Plus size={20} /> <span className="hidden sm:inline">Nuevo Producto</span>
+          </button>
+        </div>
       </div>
 
       {/* Search */}
