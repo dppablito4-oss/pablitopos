@@ -10,7 +10,7 @@ const Verificacion = () => {
   const [items, setItems] = useState([]);
   const [company, setCompany] = useState(null);
   const [client, setClient] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // Estado para el formulario manual
