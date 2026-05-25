@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Eye, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, FileText, Eye, RefreshCw, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { generarHashSunat } from '../lib/sunatService';
 
 const FILTER_TYPES = [
   { label: 'Todos', value: 'all' },
@@ -14,6 +15,7 @@ const Historial = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
@@ -58,10 +60,32 @@ const Historial = () => {
     return true;
   });
 
+  const handleReenviar = async (sale) => {
+    setIsSending(true);
+    try {
+      const { data: items } = await supabase.from('sale_items').select('*').eq('sale_id', sale.id);
+      if (!items || items.length === 0) {
+        alert('No hay items para enviar.');
+        return;
+      }
+      const hash = await generarHashSunat(sale, items);
+      if (hash) {
+        await supabase.from('sales').update({ serial_seguridad: hash }).eq('id', sale.id);
+        alert('Documento reenviado y aceptado por SUNAT exitosamente.');
+        fetchVentas();
+      }
+    } catch (e) {
+      alert('Error enviando a SUNAT: ' + e.message);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const getTipoBadge = (v) => {
     if (v.is_proforma) return <span className="badge badge-warning">Proforma</span>;
     if (v.is_adelanto) return <span className="badge badge-info">Adelanto</span>;
     if (v.is_boletin) return <span className="badge badge-secondary">Boletín</span>;
+    if (v.series?.startsWith('F')) return <span className="badge badge-primary">Factura</span>;
     if (v.series?.startsWith('B')) return <span className="badge badge-success">Boleta</span>;
     return <span className="badge badge-neutral">Nota Venta</span>;
   };
@@ -143,11 +167,22 @@ const Historial = () => {
                       <td>{v.clients?.full_name || <span className="text-base-content/40">Cliente varios</span>}</td>
                       <td>{getTipoBadge(v)}</td>
                       <td className="text-right font-bold text-primary">S/ {parseFloat(v.total).toFixed(2)}</td>
-                      <td>
-                        <button className="btn btn-sm btn-ghost" onClick={() => toggleExpand(v.id)}>
-                          {expandedId === v.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                          <Eye size={16}/>
-                        </button>
+                        <div className="flex gap-1">
+                          <button className="btn btn-sm btn-ghost" onClick={() => toggleExpand(v.id)}>
+                            {expandedId === v.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                            <Eye size={16}/>
+                          </button>
+                          {(v.series?.startsWith('B') || v.series?.startsWith('F')) && !v.serial_seguridad && (
+                            <button 
+                              className="btn btn-sm btn-warning text-white" 
+                              onClick={() => handleReenviar(v)} 
+                              title="Reenviar a SUNAT"
+                              disabled={isSending}
+                            >
+                              <Send size={16} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {expandedId === v.id && (
@@ -172,8 +207,9 @@ const Historial = () => {
                             ) : (
                               <span className="loading loading-spinner loading-sm"/>
                             )}
-                            <div className="text-xs text-base-content/50 mt-1">
-                              Subtotal: S/ {parseFloat(v.subtotal).toFixed(2)} · IGV: S/ {parseFloat(v.igv).toFixed(2)} · Total: S/ {parseFloat(v.total).toFixed(2)}
+                            <div className="text-xs text-base-content/50 mt-1 flex justify-between">
+                              <span>Subtotal: S/ {parseFloat(v.subtotal).toFixed(2)} · IGV: S/ {parseFloat(v.igv).toFixed(2)} · Total: S/ {parseFloat(v.total).toFixed(2)}</span>
+                              {v.serial_seguridad && <span className="text-success font-mono">Hash: {v.serial_seguridad}</span>}
                             </div>
                           </div>
                         </td>

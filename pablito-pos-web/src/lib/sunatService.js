@@ -60,11 +60,14 @@ export const generarHashSunat = async (saleData, items) => {
     total: parseFloat(saleData.total || 0),
     leyenda,
     items: itemsFormatted,
-    sol_user: company.sol_user || 'MODDATOS',
-    sol_pass: company.sol_pass || 'MODDATOS',
-    cert_pem: company.cert_pem || null,
+    // NOTA DE SEGURIDAD: Ya no enviamos sol_user, sol_pass ni cert_pem desde aquí.
+    // El backend los obtendrá directamente de forma segura.
     production: company.production || false
   };
+
+  // Obtener Token de Autenticación del usuario logueado
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || '';
 
   console.log("📡 Enviando a SUNAT API:", SUNAT_API_URL);
 
@@ -75,7 +78,10 @@ export const generarHashSunat = async (saleData, items) => {
   try {
     const response = await fetch(`${SUNAT_API_URL}/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      },
       body: JSON.stringify(payload),
       signal: controller.signal
     });

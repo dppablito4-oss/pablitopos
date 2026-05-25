@@ -4,6 +4,7 @@ const IGV_RATE = 0.18;
 
 export const EMISION_TYPES = {
   BOLETA: 'Boleta Electrónica',
+  FACTURA: 'Factura Electrónica',
   NOTA: 'Nota de Venta Interna',
   ADELANTO: 'Adelanto',
   COTIZACION: 'Cotización'

@@ -13,6 +13,8 @@ const POS = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [customerPhone, setCustomerPhone] = useState('');
+  const [clienteDoc, setClienteDoc] = useState('');
+  const [clienteNombre, setClienteNombre] = useState('');
   const [dbError, setDbError] = useState(null);
   const [company, setCompany] = useState(null);
   
@@ -56,18 +58,6 @@ const POS = () => {
     setIsLoading(false);
   };
 
-  // Obtener número correlativo de venta
-  const getNextNumber = async (series) => {
-    const { data } = await supabase
-      .from('sales')
-      .select('number')
-      .eq('series', series)
-      .order('number', { ascending: false })
-      .limit(1)
-      .single();
-    return data ? (parseInt(data.number) + 1) : 1;
-  };
-
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const handleEmitir = async () => {
@@ -75,25 +65,60 @@ const POS = () => {
     setIsProcessing(true);
     try {
       const isBoleta = emisionType === EMISION_TYPES.BOLETA;
+      const isFactura = emisionType === EMISION_TYPES.FACTURA;
       const isNota = emisionType === EMISION_TYPES.NOTA;
       const isAdelanto = emisionType === EMISION_TYPES.ADELANTO;
       const isCotizacion = emisionType === EMISION_TYPES.COTIZACION;
 
-      // Determinar serie y calcular número correlativo
-      const series = isBoleta ? 'B001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
-      const nextNumber = await getNextNumber(series);
+      if (isFactura && (!clienteDoc || clienteDoc.length !== 11)) {
+        alert("Para Factura Electrónica es obligatorio ingresar un RUC válido (11 dígitos).");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Determinar serie
+      let series = 'NV01';
+      if (isBoleta) series = 'B001';
+      else if (isFactura) series = 'F001';
+      else if (isCotizacion) series = 'PRF';
+      else if (isAdelanto) series = 'ADL';
+
+      const isBoletaOrFactura = isBoleta || isFactura;
 
       // Cálculo de totales correcto (IGV incluido en precio)
       const totalFloat = parseFloat(total);
-      const subtotalBase = isBoleta ? (totalFloat / 1.18) : totalFloat;
-      const igvAmt = isBoleta ? (totalFloat - subtotalBase) : 0;
+      const subtotalBase = isBoletaOrFactura ? (totalFloat / 1.18) : totalFloat;
+      const igvAmt = isBoletaOrFactura ? (totalFloat - subtotalBase) : 0;
+
+      // Buscar o crear cliente si se ingresó documento
+      let clientId = null;
+      if (clienteDoc && clienteNombre) {
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('dni', clienteDoc)
+          .single();
+        
+        if (existingClient) {
+          clientId = existingClient.id;
+        } else {
+          const { data: newClient } = await supabase
+            .from('clients')
+            .insert([{ dni: clienteDoc, full_name: clienteNombre.toUpperCase() }])
+            .select('id')
+            .single();
+          if (newClient) clientId = newClient.id;
+        }
+      }
 
       // 1. Guardar Venta en Supabase
+      // El número correlativo (number) ahora se autogenera atómicamente por un Trigger en Supabase
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert([{
           series,
-          number: nextNumber,
+          number: 0, // El trigger asignará el valor real
+          client_id: clientId,
           subtotal: parseFloat(subtotalBase.toFixed(2)),
           igv: parseFloat(igvAmt.toFixed(2)),
           total: totalFloat,
@@ -112,10 +137,10 @@ const POS = () => {
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
       if (itemsError) throw itemsError;
 
-      // 3. Llamar API SUNAT SOLO si es Boleta
+      // 3. Llamar API SUNAT SOLO si es Boleta o Factura
       let hashSunat = null;
       let sunatMsg = null;
-      if (isBoleta) {
+      if (isBoletaOrFactura) {
         try {
           hashSunat = await generarHashSunat(saleData, saleItems);
           if (hashSunat) {
@@ -135,7 +160,7 @@ const POS = () => {
           razonSocial: company?.name || "PABLITO POS",
           direccion: company?.address || "AV PRINCIPAL S/N"
         },
-        cliente: { numDoc: "00000000", rznSocial: "CLIENTE VARIOS" },
+        cliente: { numDoc: clienteDoc || "00000000", rznSocial: clienteNombre || "CLIENTE VARIOS" },
         serie: saleData.series,
         correlativo: saleData.number,
         fechaEmision: saleData.datetime || new Date().toISOString(),
@@ -249,6 +274,7 @@ const POS = () => {
               <div className="grid grid-cols-2 gap-2">
                 <select className="select select-bordered select-sm w-full" value={emisionType} onChange={(e) => setEmisionType(e.target.value)}>
                   <option value={EMISION_TYPES.BOLETA} disabled={isExceeded}>{EMISION_TYPES.BOLETA}</option>
+                  <option value={EMISION_TYPES.FACTURA}>{EMISION_TYPES.FACTURA}</option>
                   <option value={EMISION_TYPES.NOTA}>{EMISION_TYPES.NOTA}</option>
                   <option value={EMISION_TYPES.ADELANTO}>{EMISION_TYPES.ADELANTO}</option>
                   <option value={EMISION_TYPES.COTIZACION}>{EMISION_TYPES.COTIZACION}</option>
@@ -260,6 +286,12 @@ const POS = () => {
                 </select>
               </div>
 
+              {/* Cliente */}
+              <div className="flex flex-col gap-2 border-t border-base-200 pt-2">
+                <input type="text" placeholder="DNI o RUC (Opcional)" value={clienteDoc} onChange={(e) => setClienteDoc(e.target.value)} className="input input-bordered input-sm w-full" />
+                <input type="text" placeholder="Nombre o Razón Social (Opcional)" value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input input-bordered input-sm w-full" />
+              </div>
+
               {/* Input WhatsApp */}
               <div className="flex gap-2">
                 <input type="text" placeholder="Teléfono para WhatsApp..." value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="input input-bordered input-sm flex-1" />
@@ -269,7 +301,7 @@ const POS = () => {
               {/* Totales */}
               <div className="space-y-1 text-sm border-t border-base-200 pt-2">
                 <div className="flex justify-between"><span className="text-base-content/70">Subtotal</span><span>S/ {subtotal}</span></div>
-                {emisionType === EMISION_TYPES.BOLETA && <div className="flex justify-between"><span className="text-base-content/70">IGV (18%)</span><span>S/ {igv}</span></div>}
+                {(emisionType === EMISION_TYPES.BOLETA || emisionType === EMISION_TYPES.FACTURA) && <div className="flex justify-between"><span className="text-base-content/70">IGV (18%)</span><span>S/ {igv}</span></div>}
                 <div className="flex justify-between items-center pt-2 font-bold text-lg"><span>Total</span><span className="text-primary">S/ {total}</span></div>
               </div>
             </div>

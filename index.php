@@ -61,7 +61,40 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-// 1. Leer datos que envía React (JSON del body)
+$supabaseUrl = getenv('SUPABASE_URL');
+$supabaseAnon = getenv('SUPABASE_ANON_KEY');
+$supabaseService = getenv('SUPABASE_SERVICE_KEY');
+
+// 1. Validar Seguridad (Autenticación via JWT de Supabase)
+$headers = getallheaders();
+$authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+$jwt = trim(str_replace('Bearer', '', $authHeader));
+
+if ($supabaseUrl && $supabaseAnon) {
+    if (empty($jwt)) {
+        http_response_code(401);
+        echo json_encode(["success" => false, "error" => "No autorizado. Token requerido."]);
+        exit();
+    }
+    // Consultar a Supabase si el token pertenece a un usuario válido
+    $ch = curl_init("$supabaseUrl/auth/v1/user");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "apikey: $supabaseAnon",
+        "Authorization: Bearer $jwt"
+    ]);
+    $res = curl_exec($ch);
+    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpcode !== 200) {
+        http_response_code(401);
+        echo json_encode(["success" => false, "error" => "Token inválido o expirado."]);
+        exit();
+    }
+}
+
+// 2. Leer datos que envía React (JSON del body)
 $input = json_decode(file_get_contents('php://input'), true);
 
 if (!$input) {
@@ -85,11 +118,33 @@ $igv        = floatval($input['igv'] ?? 0);
 $total      = floatval($input['total'] ?? 0);
 $leyenda    = $input['leyenda'] ?? 'SON CERO CON 00/100 SOLES';
 
-// Credenciales y Certificado Dinámicos
+// Credenciales Dinámicas (Primero las del input por compatibilidad temporal)
 $solUser    = $input['sol_user'] ?? 'MODDATOS';
 $solPass    = $input['sol_pass'] ?? 'MODDATOS';
 $certPem    = $input['cert_pem'] ?? null;
 $production = filter_var($input['production'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+// 2.5 (SEGURIDAD CRÍTICA): Obtener credenciales desde la BD si la API está configurada
+if ($supabaseUrl && $supabaseService) {
+    $ch = curl_init("$supabaseUrl/rest/v1/company_profile?select=sol_user,sol_pass,cert_pem,production&is_active=eq.true&limit=1");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "apikey: $supabaseService",
+        "Authorization: Bearer $supabaseService",
+        "Content-Type: application/json"
+    ]);
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    $companies = json_decode($response, true);
+    if (is_array($companies) && count($companies) > 0) {
+        // Sobreescribir con las credenciales reales
+        $solUser = $companies[0]['sol_user'] ?? 'MODDATOS';
+        $solPass = $companies[0]['sol_pass'] ?? 'MODDATOS';
+        $certPem = $companies[0]['cert_pem'] ?? null;
+        $production = filter_var($companies[0]['production'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+}
 
 // Validar que haya items
 if (empty($items)) {
