@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Lock, Mail, Eye, EyeOff, AlertCircle, ShoppingCart } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, AlertCircle, ShoppingCart, Search } from 'lucide-react';
 
 const Login = () => {
   const { user, signIn } = useAuth();
@@ -234,13 +234,26 @@ const Login = () => {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 space-y-2">
-          <p className="text-xs" style={{ color: '#475569' }}>
-            © {new Date().getFullYear()} Pablito POS — Acceso exclusivo para personal autorizado
-          </p>
-          <p className="text-xs" style={{ color: '#334155' }}>
-            v2.0 · Facturación Electrónica SUNAT
-          </p>
+        <div className="text-center mt-8 space-y-4">
+          <Link to="/verificacion" 
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105"
+            style={{ 
+              background: 'rgba(99, 102, 241, 0.1)', 
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              color: '#818cf8',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+            }}>
+            <Search size={16} /> Consulta de Boletas y Facturas
+          </Link>
+          
+          <div className="pt-2 space-y-2">
+            <p className="text-xs" style={{ color: '#475569' }}>
+              © {new Date().getFullYear()} Pablito POS — Acceso exclusivo para personal autorizado
+            </p>
+            <p className="text-xs" style={{ color: '#334155' }}>
+              v2.0 · Facturación Electrónica SUNAT
+            </p>
+          </div>
         </div>
       </div>
 
