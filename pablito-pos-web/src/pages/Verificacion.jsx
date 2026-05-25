@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer, Camera, AlertTriangle } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
 import { Html5Qrcode } from 'html5-qrcode';
+import html2pdf from 'html2pdf.js';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();
@@ -362,16 +363,38 @@ const Verificacion = () => {
 
   // ====== COMPROBANTE VERIFICADO ======
   // ====== ESTADO 1: ÉXITO TOTAL (VERIFICADO) ======
+  const getFileNameBase = () => {
+    return `${company?.ruc || urlRuc || 'RUC'}-${sale.series.startsWith('F') ? '01' : '03'}-${sale.series}-${String(sale.number).padStart(8,'0')}`;
+  };
+
   const handleDownloadXML = () => {
     if (!sale.xml_base64) return alert('El XML de este comprobante no está disponible o aún no ha sido firmado.');
     const link = document.createElement('a');
     link.href = `data:text/xml;base64,${sale.xml_base64}`;
-    link.download = `${company?.ruc || urlRuc || 'RUC'}-${sale.series.startsWith('F') ? '01' : '03'}-${sale.series}-${String(sale.number).padStart(8,'0')}.xml`;
+    link.download = `${getFileNameBase()}.xml`;
     link.click();
   };
 
   const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = getFileNameBase();
     window.print();
+    setTimeout(() => { document.title = originalTitle; }, 1000);
+  };
+
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('pdf-preview-content');
+    if (!element) return;
+    
+    const opt = {
+      margin:       0,
+      filename:     `${getFileNameBase()}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    
+    html2pdf().set(opt).from(element).save();
   };
 
   const receiptData = {
@@ -423,19 +446,24 @@ const Verificacion = () => {
         <div className="flex gap-2">
           {sale.xml_base64 && (
             <button onClick={handleDownloadXML} className="btn btn-sm btn-outline btn-accent">
-              <Download size={16} /> Descargar XML
+              <Download size={16} /> XML
             </button>
           )}
-          <button onClick={handlePrint} className="btn btn-sm btn-primary">
-            <Printer size={16} /> Descargar / Imprimir PDF
-          </button>
+          <div className="join">
+            <button onClick={handleDownloadPDF} className="btn btn-sm btn-primary join-item">
+              <Download size={16} /> Descargar PDF
+            </button>
+            <button onClick={handlePrint} className="btn btn-sm btn-primary join-item border-l-black/20">
+              <Printer size={16} /> Imprimir
+            </button>
+          </div>
         </div>
       </div>
 
       {/* PDF Viewer Area */}
       <div className="flex-1 overflow-auto p-4 md:p-8 bg-base-300 flex justify-center items-start print:p-0 print:bg-white print:overflow-visible">
         {/* Aquí renderizamos el recibo como A4 para previsualizarlo */}
-        <div className="print:hidden w-full max-w-[794px]">
+        <div id="pdf-preview-content" className="print:hidden w-full max-w-[794px] bg-white">
           <PrintReceipt 
             cart={cart}
             totals={totals}
