@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer, Camera, AlertTriangle } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();
@@ -38,23 +38,38 @@ const Verificacion = () => {
 
   // ======= ESCÁNER QR =======
   useEffect(() => {
-    let scanner = null;
+    let html5QrCode = null;
+    
     if (showScanner) {
-      scanner = new Html5QrcodeScanner(
-        "qr-reader",
-        { fps: 10, qrbox: {width: 250, height: 250} },
-        /* verbose= */ false
-      );
-      scanner.render((decodedText) => {
-        scanner.clear();
-        setShowScanner(false);
-        handleQRScanned(decodedText);
-      }, (err) => {
-        // ignora errores de lectura continua
-      });
+      // Retraso mínimo para asegurar que el div #qr-reader ya esté en el DOM
+      setTimeout(() => {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        
+        html5QrCode.start(
+          { facingMode: "environment" }, // Usa cámara trasera por defecto
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => {
+            // Éxito: detiene la cámara y procesa
+            html5QrCode.stop().then(() => {
+              setShowScanner(false);
+              handleQRScanned(decodedText);
+            }).catch(e => console.log('Error stopping scanner', e));
+          },
+          (err) => {
+            // Ignorar errores de lectura en vivo (frames vacíos)
+          }
+        ).catch((err) => {
+          console.error("Error iniciando cámara", err);
+          alert("Error: Por favor, permite el acceso a la cámara en tu navegador.");
+          setShowScanner(false);
+        });
+      }, 100);
     }
+    
     return () => {
-      if (scanner) scanner.clear().catch(e => console.log('Error clearing scanner', e));
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(e => console.log('Error clearing scanner', e));
+      }
     };
   }, [showScanner]);
 
