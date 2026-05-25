@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer } from 'lucide-react';
+import PrintReceipt from '../components/PrintReceipt';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();
@@ -226,139 +227,102 @@ const Verificacion = () => {
   }
 
   // ====== COMPROBANTE VERIFICADO ======
+  const handleDownloadXML = () => {
+    if (!sale.xml_base64) return alert('El XML de este comprobante no está disponible o aún no ha sido firmado.');
+    const link = document.createElement('a');
+    link.href = `data:text/xml;base64,${sale.xml_base64}`;
+    link.download = `${company?.ruc || ruc || 'RUC'}-${sale.series.startsWith('F') ? '01' : '03'}-${sale.series}-${String(sale.number).padStart(8,'0')}.xml`;
+    link.click();
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const receiptData = {
+    company: {
+      ruc: company?.ruc || ruc || '—',
+      razonSocial: company?.name || 'EMPRESA',
+      direccion: company?.address || '',
+      logo_base64: company?.logo_base64 || null
+    },
+    cliente: {
+      numDoc: client?.dni || '—',
+      rznSocial: client?.full_name || '—'
+    },
+    serie: sale.series,
+    correlativo: sale.number,
+    fechaEmision: sale.datetime,
+    hash: sale.serial_seguridad || ''
+  };
+
+  const totals = {
+    subtotal: parseFloat(sale.subtotal).toFixed(2),
+    igv: parseFloat(sale.igv).toFixed(2),
+    total: parseFloat(sale.total).toFixed(2)
+  };
+
+  const cart = items.map(item => ({
+    name: item.description,
+    quantity: item.quantity,
+    price: parseFloat(item.unit_price),
+    subtotal: parseFloat(item.subtotal)
+  }));
+
   return (
-    <div className="min-h-screen p-4 pb-12"
-      style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 50%, #11111b 100%)' }}>
-      
-      <div className="max-w-lg mx-auto">
-        {/* Status badge */}
-        <div className="text-center mb-6 pt-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium"
-            style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#4ade80' }}>
-            <CheckCircle size={18} />
-            Comprobante verificado
+    <div className="min-h-screen bg-base-300 flex flex-col">
+      {/* Top Toolbar (No se imprime) */}
+      <div className="bg-neutral text-neutral-content p-4 shadow-md flex flex-wrap justify-between items-center z-10 print:hidden gap-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-success/20 text-success px-3 py-1.5 rounded-full flex items-center gap-2 text-sm font-bold border border-success/30">
+            <CheckCircle size={16} /> Verificado
           </div>
-        </div>
-
-        {/* Receipt card */}
-        <div className="rounded-2xl overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg, rgba(30, 30, 46, 0.9) 0%, rgba(24, 24, 37, 0.95) 100%)',
-            border: '1px solid rgba(148, 163, 184, 0.1)',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.4)',
-          }}>
-          
-          {/* Accent line */}
-          <div className="h-[2px]" style={{ background: 'linear-gradient(90deg, transparent, #22c55e, #4ade80, #22c55e, transparent)' }} />
-
-          {/* Company header */}
-          <div className="px-6 pt-8 pb-6 text-center" style={{ borderBottom: '1px dashed rgba(148, 163, 184, 0.1)' }}>
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-3"
-              style={{ background: 'rgba(99, 102, 241, 0.15)' }}>
-              <Building2 size={24} style={{ color: '#818cf8' }} />
-            </div>
-            <h1 className="text-xl font-bold mb-1" style={{ color: '#f1f5f9' }}>
-              {company?.name || 'EMPRESA'}
+          <div>
+            <h1 className="font-bold text-lg leading-tight">
+              {getTipo()} {sale.series}-{String(sale.number).padStart(8, '0')}
             </h1>
-            <p className="text-sm" style={{ color: '#64748b' }}>RUC: {company?.ruc || ruc || '—'}</p>
-            {company?.address && <p className="text-xs mt-1" style={{ color: '#475569' }}>{company.address}</p>}
+            <p className="text-xs opacity-70">Consulta Pública SUNAT</p>
           </div>
-
-          {/* Document type & number */}
-          <div className="px-6 py-5 text-center" style={{ borderBottom: '1px dashed rgba(148, 163, 184, 0.1)' }}>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg mb-2"
-              style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-              <FileText size={14} style={{ color: '#818cf8' }} />
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#a5b4fc' }}>
-                {getTipo()}
-              </span>
-            </div>
-            <p className="text-2xl font-bold font-mono tracking-wide" style={{ color: '#e2e8f0' }}>
-              {sale.series}-{String(sale.number).padStart(8, '0')}
-            </p>
-            <p className="text-xs mt-2" style={{ color: '#64748b' }}>
-              {formatDate(sale.datetime)}
-            </p>
-          </div>
-
-          {/* Client info */}
-          {client && (
-            <div className="px-6 py-4" style={{ borderBottom: '1px dashed rgba(148, 163, 184, 0.1)' }}>
-              <div className="flex items-center gap-3">
-                <User size={16} style={{ color: '#64748b' }} />
-                <div>
-                  <p className="text-sm font-medium" style={{ color: '#cbd5e1' }}>{client.full_name}</p>
-                  <p className="text-xs" style={{ color: '#64748b' }}>DNI/RUC: {client.dni || '—'}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Items */}
-          <div className="px-6 py-5" style={{ borderBottom: '1px dashed rgba(148, 163, 184, 0.1)' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <ShoppingCart size={14} style={{ color: '#64748b' }} />
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#64748b' }}>
-                Detalle de productos
-              </span>
-            </div>
-            <div className="space-y-3">
-              {items.map((item, i) => (
-                <div key={i} className="flex justify-between items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: '#cbd5e1' }}>{item.description}</p>
-                    <p className="text-xs" style={{ color: '#64748b' }}>
-                      {item.quantity} x S/ {parseFloat(item.unit_price).toFixed(2)}
-                    </p>
-                  </div>
-                  <p className="text-sm font-bold whitespace-nowrap" style={{ color: '#e2e8f0' }}>
-                    S/ {parseFloat(item.subtotal).toFixed(2)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Totals */}
-          <div className="px-6 py-5">
-            <div className="space-y-2 mb-3">
-              <div className="flex justify-between">
-                <span className="text-sm" style={{ color: '#64748b' }}>Subtotal</span>
-                <span className="text-sm" style={{ color: '#94a3b8' }}>S/ {parseFloat(sale.subtotal).toFixed(2)}</span>
-              </div>
-              {parseFloat(sale.igv) > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-sm" style={{ color: '#64748b' }}>IGV (18%)</span>
-                  <span className="text-sm" style={{ color: '#94a3b8' }}>S/ {parseFloat(sale.igv).toFixed(2)}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px solid rgba(148, 163, 184, 0.15)' }}>
-              <span className="text-lg font-bold" style={{ color: '#f1f5f9' }}>Total</span>
-              <span className="text-2xl font-bold" style={{ color: '#4ade80' }}>
-                S/ {parseFloat(sale.total).toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Hash/security footer */}
-          {sale.serial_seguridad && (
-            <div className="px-6 py-4" style={{ background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(148, 163, 184, 0.05)' }}>
-              <p className="text-xs text-center font-mono break-all" style={{ color: '#475569' }}>
-                Hash: {sale.serial_seguridad}
-              </p>
-            </div>
-          )}
         </div>
+        
+        <div className="flex gap-2">
+          {sale.xml_base64 && (
+            <button onClick={handleDownloadXML} className="btn btn-sm btn-outline btn-accent">
+              <Download size={16} /> Descargar XML
+            </button>
+          )}
+          <button onClick={handlePrint} className="btn btn-sm btn-primary">
+            <Printer size={16} /> Descargar / Imprimir PDF
+          </button>
+        </div>
+      </div>
 
-        {/* Footer branding */}
-        <div className="text-center mt-8 space-y-1">
-          <p className="text-xs font-medium" style={{ color: '#475569' }}>
-            Verificado por Pablito POS
-          </p>
-          <p className="text-xs" style={{ color: '#334155' }}>
-            Documento electrónico · Consulta SUNAT
-          </p>
+      {/* PDF Viewer Area */}
+      <div className="flex-1 overflow-auto p-4 md:p-8 bg-base-300 flex justify-center items-start print:p-0 print:bg-white print:overflow-visible">
+        {/* Aquí renderizamos el recibo como A4 para previsualizarlo */}
+        <div className="print:hidden w-full max-w-[794px]">
+          <PrintReceipt 
+            cart={cart}
+            totals={totals}
+            emisionType={getTipo()}
+            printFormat="A4"
+            receiptData={receiptData}
+            regimeConfig={{}}
+            isPreview={true}
+          />
+        </div>
+        
+        {/* Aquí renderizamos el componente oficial de impresión escondido para cuando se haga window.print() */}
+        <div className="hidden print:block w-full">
+          <PrintReceipt 
+            cart={cart}
+            totals={totals}
+            emisionType={getTipo()}
+            printFormat="A4"
+            receiptData={receiptData}
+            regimeConfig={{}}
+            isPreview={false}
+          />
         </div>
       </div>
     </div>

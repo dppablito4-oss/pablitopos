@@ -41,7 +41,7 @@ const montoEnLetras = (monto) => {
 // === Línea punteada reutilizable ===
 const Dashed = () => <div style={{ borderBottom: '1px dashed #000', margin: '6px 0' }} />;
 
-const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, regimeConfig }) => {
+const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, regimeConfig, isPreview = false }) => {
   if (!receiptData) return null;
 
   const isTicket = printFormat === 'TICKET';
@@ -63,13 +63,16 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
   if (isTicket) {
     return (
       <>
-        <style>{`
-          @media print {
-            @page { size: 80mm auto; margin: 0; }
-            body { margin: 0; }
-          }
-        `}</style>
-        <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50">
+        {!isPreview && (
+          <style>{`
+            @media print {
+              @page { size: 80mm auto; margin: 0; }
+              body { margin: 0; }
+            }
+          `}</style>
+        )}
+        <div className={isPreview ? "bg-white text-black mx-auto shadow-lg" : "hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50"}
+             style={isPreview ? { width: '302px' } : {}}>
         <div style={{ maxWidth: '302px', margin: '0 auto', padding: '10px 8px', fontFamily: 'monospace', fontSize: '11px', lineHeight: '1.4' }}>
           
           {/* CABECERA EMISOR */}
@@ -179,12 +182,15 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
   // ====== FORMATO A4 ======
   return (
     <>
-      <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 10mm; }
-        }
-      `}</style>
-      <div className="hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50">
+      {!isPreview && (
+        <style>{`
+          @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+          }
+        `}</style>
+      )}
+      <div className={isPreview ? "bg-white text-black mx-auto shadow-2xl" : "hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50"}
+           style={isPreview ? { width: '100%', maxWidth: '794px', minHeight: '1123px' } : {}}>
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 50px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '12px', lineHeight: '1.5' }}>
         
         {/* CABECERA A4 - Estilo comprobante formal */}
