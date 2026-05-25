@@ -54,10 +54,10 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
   const totalNum = parseFloat(totals.total);
   const fechaEmisionShort = receiptData.fechaEmision.split('T')[0];
   
-  // Cadena oficial QR SUNAT: RUC | TIPO_DOC | SERIE | CORRELATIVO | IGV | TOTAL | FECHA | TIPO_DOC_CLIENTE | NUM_DOC_CLIENTE | HASH |
+  // Cadena oficial QR SUNAT: RUC | TIPO_DOC | SERIE | CORRELATIVO_8 | IGV | TOTAL | FECHA | TIPO_DOC_CLIENTE | NUM_DOC_CLIENTE | HASH
   const tipoDocCod = emisionType === 'Factura Electrónica' ? '01' : '03';
   const tipoDocCli = receiptData.cliente.numDoc.length === 11 ? '6' : (receiptData.cliente.numDoc.length === 8 ? '1' : '0');
-  const qrValue = `${receiptData.company.ruc}|${tipoDocCod}|${receiptData.serie}|${receiptData.correlativo}|${totals.igv}|${totals.total}|${fechaEmisionShort}|${tipoDocCli}|${receiptData.cliente.numDoc}|${receiptData.hash || ''}|`;
+  const qrValue = `${receiptData.company.ruc}|${tipoDocCod}|${receiptData.serie}|${correlativo8}|${totals.igv}|${totals.total}|${fechaEmisionShort}|${tipoDocCli}|${receiptData.cliente.numDoc}|${receiptData.hash || ''}`;
 
   // ====== TICKET 80mm ======
   if (isTicket) {
