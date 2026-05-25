@@ -57,6 +57,7 @@ const Verificacion = () => {
         .select('*')
         .eq('series', bSerie)
         .eq('number', Number(bCorrelativo))
+        .order('id', { ascending: false })
         .limit(1);
 
       const { data: saleData, error: saleErr } = await query.maybeSingle();
