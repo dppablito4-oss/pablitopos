@@ -151,7 +151,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
 
           {/* QR + HASH */}
           <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <QRCodeSVG value={qrValue} size={110} style={{ margin: '0 auto' }} />
+            <QRCodeSVG value={qrValue} size={110} level="H" style={{ margin: '0 auto' }} />
             {receiptData.hash && (
               <p style={{ margin: '4px 0 0', fontSize: '8px', wordBreak: 'break-all' }}>
                 Hash: {receiptData.hash}
@@ -281,7 +281,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             <p style={{ margin: '4px 0 0', color: '#555' }}>Consulte su comprobante en: facturacion.sypablitodp.site/#/verificacion</p>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <QRCodeSVG value={qrValue} size={100} />
+            <QRCodeSVG value={qrValue} size={100} level="H" />
             <p style={{ margin: '4px 0 0', fontSize: '8px', color: '#888' }}>Código Verificación</p>
           </div>
         </div>

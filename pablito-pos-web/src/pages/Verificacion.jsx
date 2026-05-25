@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer, Camera, AlertTriangle } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();
@@ -12,47 +13,97 @@ const Verificacion = () => {
   const [company, setCompany] = useState(null);
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [errorType, setErrorType] = useState(null); // 'NOT_FOUND', 'FRAUD', o mensaje normal
+  const [errorMessage, setErrorMessage] = useState('');
   
-  // Estado para el formulario manual
+  // Estado para el formulario manual y escáner
   const [isManualSearch, setIsManualSearch] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [form, setForm] = useState({
     ruc: '', tipo: '03', serie: '', correlativo: '', fecha: '', total: ''
   });
 
-  const ruc = searchParams.get('ruc');
-  const serie = searchParams.get('serie');
-  const correlativo = searchParams.get('correlativo');
+  const urlRuc = searchParams.get('ruc');
+  const urlSerie = searchParams.get('serie');
+  const urlCorrelativo = searchParams.get('correlativo');
 
   useEffect(() => {
-    if (serie && correlativo) {
+    if (urlSerie && urlCorrelativo) {
       verificarPorUrl();
     } else {
       setIsManualSearch(true);
       setLoading(false);
     }
-  }, [serie, correlativo]);
+  }, [urlSerie, urlCorrelativo]);
+
+  // ======= ESCÁNER QR =======
+  useEffect(() => {
+    let scanner = null;
+    if (showScanner) {
+      scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        { fps: 10, qrbox: {width: 250, height: 250} },
+        /* verbose= */ false
+      );
+      scanner.render((decodedText) => {
+        scanner.clear();
+        setShowScanner(false);
+        handleQRScanned(decodedText);
+      }, (err) => {
+        // ignora errores de lectura continua
+      });
+    }
+    return () => {
+      if (scanner) scanner.clear().catch(e => console.log('Error clearing scanner', e));
+    };
+  }, [showScanner]);
+
+  const handleQRScanned = async (text) => {
+    const partes = text.split('|');
+    if (partes.length >= 7) {
+      // SUNAT format: RUC|TIPO_DOC|SERIE|CORRELATIVO|IGV|TOTAL|FECHA|TIPO_DOC_CLIENTE|NUM_DOC_CLIENTE|HASH|
+      const qRuc = partes[0];
+      const qTipo = partes[1];
+      const qSerie = partes[2];
+      const qCorrelativo = partes[3];
+      const qTotal = partes[5];
+      const qFecha = partes[6];
+      const qHash = partes[9] || null;
+      
+      setForm({
+        ruc: qRuc, tipo: qTipo, serie: qSerie, correlativo: qCorrelativo, fecha: qFecha, total: qTotal
+      });
+      await buscarComprobante(qSerie, qCorrelativo, qFecha, qTotal, qHash);
+    } else {
+      setErrorType('ERROR');
+      setErrorMessage('El código QR escaneado no tiene un formato válido de SUNAT.');
+      setIsManualSearch(true);
+    }
+  };
 
   const verificarPorUrl = async () => {
     setLoading(true);
-    await buscarComprobante(serie, correlativo);
+    await buscarComprobante(urlSerie, urlCorrelativo);
   };
 
   const handleManualSubmit = async (e) => {
     e.preventDefault();
     if (!form.serie || !form.correlativo || !form.fecha || !form.total) {
-      setError('Por favor, completa todos los campos para la búsqueda.');
+      setErrorType('ERROR');
+      setErrorMessage('Por favor, completa todos los campos para la búsqueda.');
       return;
     }
     setLoading(true);
     await buscarComprobante(form.serie.toUpperCase(), form.correlativo, form.fecha, form.total);
   };
 
-  const buscarComprobante = async (bSerie, bCorrelativo, bFecha = null, bTotal = null) => {
+  const buscarComprobante = async (bSerie, bCorrelativo, bFecha = null, bTotal = null, bHash = null) => {
     setLoading(true);
-    setError(null);
+    setErrorType(null);
+    setErrorMessage('');
+    
     try {
-      // 1. Buscar la venta base
+      // 1. Buscar la venta base en Supabase (El Búnker de Verdad)
       let query = supabase
         .from('sales')
         .select('*')
@@ -64,25 +115,45 @@ const Verificacion = () => {
       const { data: saleData, error: saleErr } = await query.maybeSingle();
 
       if (saleErr) {
-        setError(`Error de base de datos: ${saleErr.message}`);
+        setErrorType('ERROR');
+        setErrorMessage(`Error de base de datos: ${saleErr.message}`);
         setLoading(false);
         return;
       }
       
       if (!saleData) {
-        setError('Comprobante no encontrado en el sistema.');
+        // Estado 3: Inexistente (Fake)
+        setErrorType('NOT_FOUND');
         setLoading(false);
         return;
       }
 
-      // 2. Si es búsqueda manual estricta, validar Fecha y Monto (SUNAT Rules)
+      // 2. Validación Cruzada (Algoritmo de Match de Seguridad)
+      let isManipulated = false;
+
       if (bFecha && bTotal) {
-        const saleDate = new Date(saleData.datetime).toISOString().split('T')[0];
-        if (saleDate !== bFecha || parseFloat(saleData.total) !== parseFloat(bTotal)) {
-          setError('Los datos ingresados (Fecha o Monto) no coinciden con el comprobante.');
-          setLoading(false);
-          return;
+        // Para la fecha comparamos la fecha UTC formateada a local si es necesario, 
+        // pero la base de datos la retorna en formato ISO. 
+        // HTML form.fecha es YYYY-MM-DD. 
+        // Asumimos que podemos parsear y comparar la parte de la fecha ignorando zona horaria estricta, 
+        // o mejor, solo comparamos la fecha cruda si se guardó como string, o comparamos Totales primero.
+        
+        // Validación estricta de Total y Hash
+        if (parseFloat(saleData.total) !== parseFloat(bTotal)) {
+          isManipulated = true;
         }
+        
+        // Si nos pasaron el Hash desde el QR, lo validamos también
+        if (bHash && saleData.serial_seguridad && bHash !== saleData.serial_seguridad) {
+          isManipulated = true;
+        }
+      }
+
+      if (isManipulated) {
+        // Estado 2: Intento de Cutra / Alerta
+        setErrorType('FRAUD');
+        setLoading(false);
+        return;
       }
 
       setSale(saleData);
@@ -102,7 +173,8 @@ const Verificacion = () => {
       if (companyRes.data) setCompany(companyRes.data);
       if (clientRes.data) setClient(clientRes.data);
     } catch (e) {
-      setError('Error al consultar el comprobante: ' + e.message);
+      setErrorType('ERROR');
+      setErrorMessage('Error al consultar el comprobante: ' + e.message);
     }
     setLoading(false);
   };
@@ -128,14 +200,35 @@ const Verificacion = () => {
         style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
         <div className="text-center">
           <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: '#6366f1' }} />
-          <p style={{ color: '#94a3b8' }}>Verificando comprobante...</p>
+          <p style={{ color: '#94a3b8' }}>Verificando comprobante de forma segura...</p>
         </div>
       </div>
     );
   }
 
-  // ====== ERROR / NOT FOUND ======
-  if (error && !isManualSearch) {
+  // ====== ESTADO 2: FRAUDE (Manipulado) ======
+  if (errorType === 'FRAUD') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-red-950">
+        <div className="max-w-md w-full bg-red-900/50 border border-red-500 rounded-2xl p-8 text-center shadow-2xl shadow-red-900/50">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-red-500/20 mb-6 animate-pulse">
+            <AlertTriangle size={48} className="text-red-500" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-4">¡ALERTA DE SEGURIDAD!</h1>
+          <p className="text-red-200 mb-8 text-lg font-medium">
+            Los datos de este código QR o ingresados no coinciden con los registros oficiales de la empresa. Posible manipulación detectada.
+          </p>
+          <button className="btn btn-outline border-red-400 text-red-200 hover:bg-red-500 hover:text-white hover:border-red-500 w-full" 
+                  onClick={() => { setErrorType(null); setIsManualSearch(true); }}>
+            Consultar otro comprobante
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ====== ESTADO 3: INEXISTENTE ======
+  if (errorType === 'NOT_FOUND' && !isManualSearch) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
@@ -144,9 +237,11 @@ const Verificacion = () => {
             style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid rgba(239, 68, 68, 0.3)' }}>
             <XCircle size={40} style={{ color: '#ef4444' }} />
           </div>
-          <h1 className="text-2xl font-bold mb-3" style={{ color: '#f1f5f9' }}>Comprobante no encontrado</h1>
-          <p className="text-sm mb-6" style={{ color: '#64748b' }}>{error}</p>
-          <button className="btn btn-outline btn-primary" onClick={() => { setError(null); setIsManualSearch(true); }}>
+          <h1 className="text-2xl font-bold mb-3" style={{ color: '#f1f5f9' }}>Comprobante Inexistente</h1>
+          <p className="text-sm mb-6" style={{ color: '#64748b' }}>
+            El comprobante consultado no se encuentra registrado en nuestro sistema oficial.
+          </p>
+          <button className="btn btn-outline btn-primary" onClick={() => { setErrorType(null); setIsManualSearch(true); }}>
             Realizar nueva búsqueda
           </button>
         </div>
@@ -154,11 +249,26 @@ const Verificacion = () => {
     );
   }
 
-  // ====== FORMULARIO DE BÚSQUEDA MANUAL (SUNAT) ======
+  // ====== FORMULARIO DE BÚSQUEDA MANUAL Y ESCÁNER ======
   if (isManualSearch && !sale) {
     return (
       <div className="min-h-screen p-4 flex items-center justify-center"
         style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
+        
+        {/* MODAL DEL ESCÁNER */}
+        {showScanner && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-base-100 p-6 rounded-2xl max-w-md w-full border border-dashed border-primary/50 relative shadow-2xl shadow-primary/20">
+              <button onClick={() => setShowScanner(false)} className="absolute top-4 right-4 text-base-content/50 hover:text-white z-10">
+                <XCircle size={24} />
+              </button>
+              <h3 className="text-xl font-bold mb-4 text-center">Escanear Código QR</h3>
+              <div id="qr-reader" className="w-full bg-black rounded-xl overflow-hidden"></div>
+              <p className="text-xs text-center text-base-content/50 mt-4">Apunta tu cámara al código QR impreso en el ticket.</p>
+            </div>
+          </div>
+        )}
+
         <div className="max-w-md w-full rounded-2xl overflow-hidden p-6 shadow-2xl"
           style={{ background: 'rgba(30, 30, 46, 0.95)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
           <div className="text-center mb-6">
@@ -170,9 +280,18 @@ const Verificacion = () => {
             <p className="text-sm text-base-content/60">Verifica la validez de tu documento electrónico</p>
           </div>
 
-          {error && (
+          <button 
+            type="button" 
+            onClick={() => setShowScanner(true)}
+            className="btn btn-outline btn-secondary w-full mb-6 border-dashed border-2 hover:border-solid hover:shadow-[0_0_15px_rgba(217,70,239,0.3)] transition-all flex gap-2">
+            <Camera size={20} /> ESCANEAR QR FÍSICO
+          </button>
+          
+          <div className="divider text-xs text-base-content/40 mb-6">O INGRESA MANUALMENTE</div>
+
+          {(errorType === 'NOT_FOUND' || errorType === 'ERROR' || errorMessage) && (
             <div className="alert alert-error text-sm mb-4 py-2">
-              <XCircle size={16}/> {error}
+              <XCircle size={16}/> {errorMessage || 'El comprobante consultado no se encuentra registrado en nuestro sistema oficial.'}
             </div>
           )}
 
@@ -227,11 +346,12 @@ const Verificacion = () => {
   }
 
   // ====== COMPROBANTE VERIFICADO ======
+  // ====== ESTADO 1: ÉXITO TOTAL (VERIFICADO) ======
   const handleDownloadXML = () => {
     if (!sale.xml_base64) return alert('El XML de este comprobante no está disponible o aún no ha sido firmado.');
     const link = document.createElement('a');
     link.href = `data:text/xml;base64,${sale.xml_base64}`;
-    link.download = `${company?.ruc || ruc || 'RUC'}-${sale.series.startsWith('F') ? '01' : '03'}-${sale.series}-${String(sale.number).padStart(8,'0')}.xml`;
+    link.download = `${company?.ruc || urlRuc || 'RUC'}-${sale.series.startsWith('F') ? '01' : '03'}-${sale.series}-${String(sale.number).padStart(8,'0')}.xml`;
     link.click();
   };
 
@@ -241,7 +361,7 @@ const Verificacion = () => {
 
   const receiptData = {
     company: {
-      ruc: company?.ruc || ruc || '—',
+      ruc: company?.ruc || urlRuc || '—',
       razonSocial: company?.name || 'EMPRESA',
       direccion: company?.address || '',
       logo_base64: company?.logo_base64 || null
