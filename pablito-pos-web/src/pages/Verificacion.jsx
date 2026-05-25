@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search } from 'lucide-react';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [sale, setSale] = useState(null);
   const [items, setItems] = useState([]);
   const [company, setCompany] = useState(null);
   const [client, setClient] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Estado para el formulario manual
+  const [isManualSearch, setIsManualSearch] = useState(false);
+  const [form, setForm] = useState({
+    ruc: '', tipo: '03', serie: '', correlativo: '', fecha: '', total: ''
+  });
 
   const ruc = searchParams.get('ruc');
   const serie = searchParams.get('serie');
@@ -18,30 +25,57 @@ const Verificacion = () => {
 
   useEffect(() => {
     if (serie && correlativo) {
-      verificar();
+      verificarPorUrl();
     } else {
-      setError('Enlace de verificación inválido. Faltan parámetros.');
+      setIsManualSearch(true);
       setLoading(false);
     }
   }, [serie, correlativo]);
 
-  const verificar = async () => {
+  const verificarPorUrl = async () => {
+    setLoading(true);
+    await buscarComprobante(serie, correlativo);
+  };
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.serie || !form.correlativo || !form.fecha || !form.total) {
+      setError('Por favor, completa todos los campos para la búsqueda.');
+      return;
+    }
+    setLoading(true);
+    await buscarComprobante(form.serie.toUpperCase(), form.correlativo, form.fecha, form.total);
+  };
+
+  const buscarComprobante = async (bSerie, bCorrelativo, bFecha = null, bTotal = null) => {
     setLoading(true);
     setError(null);
     try {
-      // Buscar la venta
-      const { data: saleData, error: saleErr } = await supabase
+      // 1. Buscar la venta base
+      let query = supabase
         .from('sales')
         .select('*')
-        .eq('series', serie)
-        .eq('number', parseInt(correlativo))
-        .single();
+        .eq('series', bSerie)
+        .eq('number', parseInt(bCorrelativo));
+
+      const { data: saleData, error: saleErr } = await query.single();
 
       if (saleErr || !saleData) {
         setError('Comprobante no encontrado en el sistema.');
         setLoading(false);
         return;
       }
+
+      // 2. Si es búsqueda manual estricta, validar Fecha y Monto (SUNAT Rules)
+      if (bFecha && bTotal) {
+        const saleDate = new Date(saleData.datetime).toISOString().split('T')[0];
+        if (saleDate !== bFecha || parseFloat(saleData.total) !== parseFloat(bTotal)) {
+          setError('Los datos ingresados (Fecha o Monto) no coinciden con el comprobante.');
+          setLoading(false);
+          return;
+        }
+      }
+
       setSale(saleData);
 
       // Buscar items, empresa y cliente en paralelo
@@ -92,7 +126,7 @@ const Verificacion = () => {
   }
 
   // ====== ERROR / NOT FOUND ======
-  if (error) {
+  if (error && !isManualSearch) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4"
         style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
@@ -103,12 +137,81 @@ const Verificacion = () => {
           </div>
           <h1 className="text-2xl font-bold mb-3" style={{ color: '#f1f5f9' }}>Comprobante no encontrado</h1>
           <p className="text-sm mb-6" style={{ color: '#64748b' }}>{error}</p>
-          <div className="rounded-xl p-4" style={{ background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
-            <p className="text-xs" style={{ color: '#475569' }}>
-              Si crees que es un error, contacta al establecimiento emisor.
-            </p>
+          <button className="btn btn-outline btn-primary" onClick={() => { setError(null); setIsManualSearch(true); }}>
+            Realizar nueva búsqueda
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ====== FORMULARIO DE BÚSQUEDA MANUAL (SUNAT) ======
+  if (isManualSearch && !sale) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center"
+        style={{ background: 'linear-gradient(180deg, #11111b 0%, #181825 100%)' }}>
+        <div className="max-w-md w-full rounded-2xl overflow-hidden p-6 shadow-2xl"
+          style={{ background: 'rgba(30, 30, 46, 0.95)', border: '1px solid rgba(148, 163, 184, 0.1)' }}>
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-3"
+              style={{ background: 'rgba(99, 102, 241, 0.15)' }}>
+              <Search size={24} style={{ color: '#818cf8' }} />
+            </div>
+            <h1 className="text-xl font-bold text-white">Consulta de Comprobantes</h1>
+            <p className="text-sm text-base-content/60">Verifica la validez de tu documento electrónico</p>
           </div>
-          <p className="text-xs mt-8" style={{ color: '#334155' }}>Pablito POS · Verificación Electrónica</p>
+
+          {error && (
+            <div className="alert alert-error text-sm mb-4 py-2">
+              <XCircle size={16}/> {error}
+            </div>
+          )}
+
+          <form onSubmit={handleManualSubmit} className="space-y-4">
+            <div className="form-control">
+              <label className="label"><span className="label-text text-gray-300">RUC del Emisor</span></label>
+              <input type="text" className="input input-bordered w-full bg-base-300" placeholder="Ej. 20123456789"
+                value={form.ruc} onChange={e => setForm({...form, ruc: e.target.value.replace(/\D/g,'')})} maxLength={11} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="form-control">
+                <label className="label"><span className="label-text text-gray-300">Tipo</span></label>
+                <select className="select select-bordered bg-base-300" value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})}>
+                  <option value="03">Boleta (B)</option>
+                  <option value="01">Factura (F)</option>
+                </select>
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text text-gray-300">Serie</span></label>
+                <input type="text" className="input input-bordered bg-base-300 uppercase" placeholder="Ej. B001"
+                  value={form.serie} onChange={e => setForm({...form, serie: e.target.value.toUpperCase()})} maxLength={4} />
+              </div>
+            </div>
+
+            <div className="form-control">
+              <label className="label"><span className="label-text text-gray-300">Número Correlativo</span></label>
+              <input type="number" className="input input-bordered w-full bg-base-300" placeholder="Ej. 1"
+                value={form.correlativo} onChange={e => setForm({...form, correlativo: e.target.value})} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="form-control">
+                <label className="label"><span className="label-text text-gray-300">Fecha de Emisión</span></label>
+                <input type="date" className="input input-bordered bg-base-300"
+                  value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text text-gray-300">Monto Total (S/)</span></label>
+                <input type="number" step="0.01" className="input input-bordered bg-base-300" placeholder="0.00"
+                  value={form.total} onChange={e => setForm({...form, total: e.target.value})} />
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary w-full mt-4" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : 'Buscar Comprobante'}
+            </button>
+          </form>
         </div>
       </div>
     );
