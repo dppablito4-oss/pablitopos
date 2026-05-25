@@ -38,18 +38,23 @@ const Historial = () => {
         if (element) {
           const v = receiptToPrint;
           const fileName = `${company?.ruc || 'RUC'}-${v.series?.startsWith('F') ? '01' : '03'}-${v.series}-${String(v.number).padStart(8,'0')}.pdf`;
+          
           const opt = {
             margin: 0,
             filename: fileName,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: printFormat === 'TICKET' 
+              ? { unit: 'mm', format: [80, 200], orientation: 'portrait' } 
+              : { unit: 'in', format: 'a4', orientation: 'portrait' }
           };
+
           html2pdf().set(opt).from(element).save().then(() => {
             setDownloadPdfTrigger(false);
           }).catch(err => {
             console.error("Error PDF:", err);
             setDownloadPdfTrigger(false);
+            alert("Error al generar el PDF. Intente nuevamente.");
           });
         }
       }, 500);
@@ -361,8 +366,8 @@ const Historial = () => {
     
     {/* Componente Oculto para Descarga PDF (Fuera de pantalla) */}
     {receiptToPrint && downloadPdfTrigger && (
-      <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', zIndex: -100 }}>
-        <div id="historial-print-receipt" className="bg-white">
+      <div style={{ position: 'absolute', top: 0, left: 0, opacity: 0, pointerEvents: 'none', zIndex: -100 }}>
+        <div id="historial-print-receipt" className="bg-white" style={{ width: printFormat === 'TICKET' ? '302px' : '794px' }}>
           <PrintReceipt 
             cart={receiptToPrint.cart} 
             totals={receiptToPrint.totals} 
