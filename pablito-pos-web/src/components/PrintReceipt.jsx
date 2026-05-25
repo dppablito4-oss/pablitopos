@@ -52,7 +52,8 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
   const fechaStr = fecha.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const horaStr = fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const totalNum = parseFloat(totals.total);
-  const qrUrl = `https://facturacion.sypablitodp.site/#/verificacion?ruc=${receiptData.company.ruc}&serie=${receiptData.serie}&correlativo=${receiptData.correlativo}`;
+  const fechaEmisionShort = receiptData.fechaEmision.split('T')[0];
+  const qrUrl = `https://facturacion.sypablitodp.site/#/verificacion?ruc=${receiptData.company.ruc}&serie=${receiptData.serie}&correlativo=${receiptData.correlativo}&total=${totalNum.toFixed(2)}&fecha=${fechaEmisionShort}`;
 
   // ====== TICKET 80mm ======
   if (isTicket) {
