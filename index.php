@@ -293,7 +293,9 @@ try {
             "cdrCode" => $cdr->getCode(),
             "cdrDescription" => $cdr->getDescription(),
             "serie" => $serie,
-            "correlativo" => $correlativo
+            "correlativo" => $correlativo,
+            "xml_base64" => base64_encode($xmlSigned),
+            "cdr_base64" => base64_encode($res->getCdrZip())
         ]);
     } else {
         $error = $res->getError();
@@ -310,7 +312,8 @@ try {
                 "cdrDescription" => "Documento firmado y aceptado de forma simulada en entorno de pruebas (BETA reportó: " . $errMsg . ").",
                 "serie" => $serie,
                 "correlativo" => $correlativo,
-                "simulated" => true
+                "simulated" => true,
+                "xml_base64" => base64_encode($xmlSigned ?? '')
             ]);
         } else {
             echo json_encode([
@@ -332,7 +335,8 @@ try {
             "cdrDescription" => "Documento aceptado simuladamente por excepción de red (BETA): " . $e->getMessage(),
             "serie" => $serie,
             "correlativo" => $correlativo,
-            "simulated" => true
+            "simulated" => true,
+            "xml_base64" => base64_encode($xmlSigned ?? '')
         ]);
     } else {
         http_response_code(500);

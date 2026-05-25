@@ -66,6 +66,17 @@ const Historial = () => {
     return true;
   });
 
+  const downloadBase64File = (base64Data, filename, contentType) => {
+    if (!base64Data) return;
+    const linkSource = `data:${contentType};base64,${base64Data}`;
+    const downloadLink = document.createElement('a');
+    downloadLink.href = linkSource;
+    downloadLink.download = filename;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  };
+
   const handleReenviar = async (sale) => {
     setIsSending(true);
     try {
@@ -74,9 +85,13 @@ const Historial = () => {
         alert('No hay items para enviar.');
         return;
       }
-      const hash = await generarHashSunat(sale, items);
-      if (hash) {
-        await supabase.from('sales').update({ serial_seguridad: hash }).eq('id', sale.id);
+      const sunatRes = await generarHashSunat(sale, items);
+      if (sunatRes && sunatRes.hash) {
+        await supabase.from('sales').update({ 
+          serial_seguridad: sunatRes.hash,
+          xml_base64: sunatRes.xml_base64,
+          cdr_base64: sunatRes.cdr_base64
+        }).eq('id', sale.id);
         alert('Documento reenviado y aceptado por SUNAT exitosamente.');
         fetchVentas();
       }
@@ -226,9 +241,27 @@ const Historial = () => {
                               <Send size={16} />
                             </button>
                           )}
-                          <button className="btn btn-sm btn-ghost text-info" onClick={() => handleReprint(v)} title="Reimprimir">
+                          <button className="btn btn-sm btn-ghost text-info" onClick={() => handleReprint(v)} title="Reimprimir Ticket / Guardar PDF">
                             <Printer size={16}/>
                           </button>
+                          {v.xml_base64 && (
+                            <button 
+                              className="btn btn-sm btn-ghost text-success" 
+                              onClick={() => downloadBase64File(v.xml_base64, `${company?.ruc || 'RUC'}-${v.series}-${v.number}.xml`, 'application/xml')} 
+                              title="Descargar XML"
+                            >
+                              XML
+                            </button>
+                          )}
+                          {v.cdr_base64 && (
+                            <button 
+                              className="btn btn-sm btn-ghost text-primary" 
+                              onClick={() => downloadBase64File(v.cdr_base64, `R-${company?.ruc || 'RUC'}-${v.series}-${v.number}.zip`, 'application/zip')} 
+                              title="Descargar CDR (ZIP)"
+                            >
+                              CDR
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

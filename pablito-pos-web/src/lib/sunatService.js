@@ -103,8 +103,12 @@ export const generarHashSunat = async (saleData, items) => {
       throw new Error(result.error || "SUNAT rechazó el documento.");
     }
 
-    // Retorna el hash (DigestValue de la firma XML)
-    return result.hash || null;
+    // Retorna el hash y los archivos codificados
+    return {
+      hash: result.hash || null,
+      xml_base64: result.xml_base64 || null,
+      cdr_base64: result.cdr_base64 || null
+    };
 
   } catch (err) {
     clearTimeout(timeoutId);

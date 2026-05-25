@@ -139,9 +139,14 @@ const POS = () => {
       let sunatMsg = null;
       if (isBoletaOrFactura) {
         try {
-          hashSunat = await generarHashSunat(saleData, saleItems);
-          if (hashSunat) {
-            await supabase.from('sales').update({ serial_seguridad: hashSunat }).eq('id', saleData.id);
+          const sunatRes = await generarHashSunat(saleData, saleItems);
+          if (sunatRes && sunatRes.hash) {
+            hashSunat = sunatRes.hash;
+            await supabase.from('sales').update({ 
+              serial_seguridad: sunatRes.hash,
+              xml_base64: sunatRes.xml_base64,
+              cdr_base64: sunatRes.cdr_base64
+            }).eq('id', saleData.id);
           }
         } catch (sunatErr) {
           console.warn("SUNAT no disponible, venta guardada sin hash:", sunatErr.message);
