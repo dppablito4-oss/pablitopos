@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Printer, Send, ChevronDown, ChevronUp, Eye, RefreshCw } from 'lucide-react';
+import { FileText, Building2, User, ShoppingCart, Loader2, Search, Printer, Send, ChevronDown, ChevronUp, Eye, RefreshCw, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { generarHashSunat } from '../lib/sunatService';
 import PrintReceipt from '../components/PrintReceipt';
+import html2pdf from 'html2pdf.js';
 import { useCompany, REGIME_CONFIG } from '../contexts/CompanyContext';
 
 const FILTER_TYPES = [
@@ -24,9 +25,33 @@ const Historial = () => {
   const { company } = useCompany();
 
   // Estados para impresión
-  const [printData, setPrintData] = useState(null);
+  const [receiptToPrint, setReceiptToPrint] = useState(null);
+  const [printFormat, setPrintFormat] = useState('TICKET');
+  const [downloadPdfTrigger, setDownloadPdfTrigger] = useState(false);
 
   useEffect(() => { fetchVentas(); }, []);
+
+  useEffect(() => {
+    if (downloadPdfTrigger && receiptToPrint) {
+      setTimeout(() => {
+        const element = document.getElementById('historial-print-receipt');
+        if (element) {
+          const v = receiptToPrint;
+          const fileName = `${company?.ruc || 'RUC'}-${v.series?.startsWith('F') ? '01' : '03'}-${v.series}-${String(v.number).padStart(8,'0')}.pdf`;
+          const opt = {
+            margin: 0,
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+          };
+          html2pdf().set(opt).from(element).save().then(() => {
+            setDownloadPdfTrigger(false);
+          });
+        }
+      }, 300);
+    }
+  }, [downloadPdfTrigger, receiptToPrint, company]);
 
   const fetchVentas = async () => {
     setIsLoading(true);
@@ -105,10 +130,8 @@ const Historial = () => {
   const getTipoBadge = (v) => {
     if (v.is_proforma) return <span className="badge badge-warning">Proforma</span>;
     if (v.is_adelanto) return <span className="badge badge-info">Adelanto</span>;
-    if (v.is_boletin) return <span className="badge badge-secondary">Boletín</span>;
     if (v.series?.startsWith('F')) return <span className="badge badge-primary">Factura</span>;
     if (v.series?.startsWith('B')) return <span className="badge badge-success">Boleta</span>;
-    if (v.series?.startsWith('F')) return <span className="badge badge-accent">Factura</span>;
     return <span className="badge badge-neutral">Nota Venta</span>;
   };
 
@@ -147,17 +170,23 @@ const Historial = () => {
       hash: v.serial_seguridad
     };
 
-    setPrintData({
+    setReceiptToPrint({ 
+      ...v, 
+      emisionType, 
+      receiptData, 
       cart: items.map(i => ({ name: i.description, quantity: i.quantity, price: parseFloat(i.unit_price), subtotal: parseFloat(i.subtotal) })),
-      totals: { subtotal: parseFloat(v.subtotal).toFixed(2), igv: parseFloat(v.igv).toFixed(2), total: parseFloat(v.total).toFixed(2) },
-      emisionType,
-      receiptData,
-      format
+      totals: { subtotal: parseFloat(v.subtotal).toFixed(2), igv: parseFloat(v.igv).toFixed(2), total: parseFloat(v.total).toFixed(2) }
     });
-
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    
+    if (format === 'A4_DOWNLOAD') {
+      setPrintFormat('A4');
+      setDownloadPdfTrigger(true);
+    } else {
+      setPrintFormat(format);
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
   };
 
   return (
@@ -251,9 +280,10 @@ const Historial = () => {
                             <label tabIndex={0} className="btn btn-sm btn-ghost text-info" title="Imprimir Comprobante">
                               <Printer size={16}/>
                             </label>
-                            <ul tabIndex={0} className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-36">
+                            <ul tabIndex={0} className="dropdown-content z-50 menu p-2 shadow bg-base-100 rounded-box w-48">
                               <li><a onClick={() => handleReprint(v, 'TICKET')}>Imprimir Ticket (80mm)</a></li>
-                              <li><a onClick={() => handleReprint(v, 'A4')}>Formato A4 (PDF)</a></li>
+                              <li><a onClick={() => handleReprint(v, 'A4')}>Imprimir A4</a></li>
+                              <li><a onClick={() => handleReprint(v, 'A4_DOWNLOAD')} className="text-primary font-medium"><Download size={14}/> Descargar PDF (A4)</a></li>
                             </ul>
                           </div>
                           {v.xml_base64 && (
@@ -263,15 +293,6 @@ const Historial = () => {
                               title="Descargar XML"
                             >
                               XML
-                            </button>
-                          )}
-                          {v.cdr_base64 && (
-                            <button 
-                              className="btn btn-sm btn-ghost text-primary" 
-                              onClick={() => downloadBase64File(v.cdr_base64, `R-${company?.ruc || 'RUC'}-${v.series}-${v.number}.zip`, 'application/zip')} 
-                              title="Descargar CDR (ZIP)"
-                            >
-                              CDR
                             </button>
                           )}
                         </div>
@@ -299,10 +320,6 @@ const Historial = () => {
                             ) : (
                               <span className="loading loading-spinner loading-sm"/>
                             )}
-                            <div className="text-xs text-base-content/50 mt-1 flex justify-between">
-                              <span>Subtotal: S/ {parseFloat(v.subtotal).toFixed(2)} · IGV: S/ {parseFloat(v.igv).toFixed(2)} · Total: S/ {parseFloat(v.total).toFixed(2)}</span>
-                              {v.serial_seguridad && <span className="text-success font-mono">Hash: {v.serial_seguridad}</span>}
-                            </div>
                           </div>
                         </td>
                       </tr>
@@ -316,16 +333,18 @@ const Historial = () => {
       </div>
     </div>
     
-    {/* Componente Oculto para Impresión */}
-    {printData && (
-      <PrintReceipt 
-        cart={printData.cart} 
-        totals={printData.totals} 
-        emisionType={printData.emisionType} 
-        printFormat={printData.format} 
-        receiptData={printData.receiptData}
-        regimeConfig={REGIME_CONFIG[company?.tax_regime || 'nrus']}
-      />
+    {/* Componente Oculto para Impresión o Descarga PDF */}
+    {receiptToPrint && (
+      <div id="historial-print-receipt" className={downloadPdfTrigger ? '' : 'hidden'}>
+        <PrintReceipt 
+          cart={receiptToPrint.cart} 
+          totals={receiptToPrint.totals} 
+          emisionType={receiptToPrint.emisionType} 
+          printFormat={printFormat} 
+          receiptData={receiptToPrint.receiptData}
+          regimeConfig={REGIME_CONFIG[company?.tax_regime || 'nrus']}
+        />
+      </div>
     )}
   </>
   );

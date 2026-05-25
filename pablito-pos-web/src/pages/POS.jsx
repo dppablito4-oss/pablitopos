@@ -177,7 +177,12 @@ const POS = () => {
 
       // Esperar un render tick para que el PrintReceipt exista en el DOM
       setTimeout(() => {
+        const fileName = `${company?.ruc || 'RUC'}-${series.startsWith('F') ? '01' : '03'}-${series}-${String(saleData.number).padStart(8,'0')}`;
+        const originalTitle = document.title;
+        document.title = fileName;
         window.print();
+        
+        setTimeout(() => { document.title = originalTitle; }, 1000);
         clearCart();
         setSelectedClient(null);
         setClientSearch('');
