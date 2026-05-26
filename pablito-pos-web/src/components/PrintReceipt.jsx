@@ -71,8 +71,8 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
             }
           `}</style>
         )}
-        <div className={isPreview ? "bg-white text-black mx-auto shadow-lg" : "hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50"}
-             style={isPreview ? { width: '302px' } : {}}>
+        <div className={isPreview ? "mx-auto shadow-lg" : "hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50"}
+             style={isPreview ? { width: '302px', backgroundColor: '#ffffff', color: '#000000' } : {}}>
         <div style={{ maxWidth: '302px', margin: '0 auto', padding: '10px 8px', fontFamily: 'monospace', fontSize: '11px', lineHeight: '1.4' }}>
           
           {/* CABECERA EMISOR */}
@@ -189,8 +189,8 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
           }
         `}</style>
       )}
-      <div className={isPreview ? "bg-white text-black mx-auto shadow-2xl" : "hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50"}
-           style={isPreview ? { width: '100%', maxWidth: '794px', minHeight: '1123px' } : {}}>
+      <div className={isPreview ? "mx-auto shadow-2xl" : "hidden print:block absolute top-0 left-0 w-full bg-white text-black z-50"}
+           style={isPreview ? { width: '100%', maxWidth: '794px', minHeight: '1123px', backgroundColor: '#ffffff', color: '#000000' } : {}}>
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '40px 50px', fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: '12px', lineHeight: '1.5' }}>
         
         {/* CABECERA A4 - Estilo comprobante formal */}
