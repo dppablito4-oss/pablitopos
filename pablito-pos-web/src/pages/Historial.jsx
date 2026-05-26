@@ -48,11 +48,35 @@ const Historial = () => {
 
       try {
         // 1. Capturar el HTML como imagen con html2canvas
+        // Usamos onclone para limpiar colores oklch() que html2canvas no soporta
         const canvas = await html2canvas(element, {
           scale: 2,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
+          onclone: (clonedDoc) => {
+            // Recorrer TODOS los elementos del documento clonado
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach(el => {
+              const style = el.style;
+              const computed = clonedDoc.defaultView.getComputedStyle(el);
+              // Forzar color y background-color a valores seguros
+              // si contienen oklch (DaisyUI/Tailwind v4)
+              const color = computed.color;
+              const bgColor = computed.backgroundColor;
+              const borderColor = computed.borderColor;
+              
+              if (color && color.includes('oklch')) {
+                style.color = '#000000';
+              }
+              if (bgColor && bgColor.includes('oklch')) {
+                style.backgroundColor = 'transparent';
+              }
+              if (borderColor && borderColor.includes('oklch')) {
+                style.borderColor = '#cccccc';
+              }
+            });
+          }
         });
 
         // 2. Convertir canvas a imagen
