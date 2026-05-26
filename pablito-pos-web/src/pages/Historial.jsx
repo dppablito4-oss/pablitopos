@@ -85,20 +85,36 @@ const Historial = () => {
         const imgHeight = canvas.height;
 
         // 3. Crear el PDF con jsPDF
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-        });
-
-        // 4. Calcular dimensiones para que quepa en A4
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const scaledWidth = imgWidth * ratio;
-        const scaledHeight = imgHeight * ratio;
-
-        pdf.addImage(imgData, 'PNG', 0, 0, scaledWidth, scaledHeight);
+        // Para ticket: ancho fijo 80mm, alto proporcional al contenido
+        // Para A4: formato estándar
+        const isTicketFormat = printFormat === 'TICKET';
+        
+        let pdf;
+        if (isTicketFormat) {
+          // Calcular alto proporcional: el contenedor mide 302px de ancho
+          // 80mm = 302px, entonces 1px = 80/302 mm
+          const pxToMm = 80 / 302;
+          const ticketHeightMm = (imgHeight / 2) * pxToMm + 5; // /2 por scale:2, +5mm margen
+          pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [80, ticketHeightMm],
+          });
+          pdf.addImage(imgData, 'PNG', 0, 0, 80, (imgHeight / 2) * pxToMm);
+        } else {
+          pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
+          // Calcular dimensiones para que quepa en A4
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+          const scaledWidth = imgWidth * ratio;
+          const scaledHeight = imgHeight * ratio;
+          pdf.addImage(imgData, 'PNG', 0, 0, scaledWidth, scaledHeight);
+        }
 
         // 5. Generar nombre de archivo y descargar
         const v = receiptToPrint;
