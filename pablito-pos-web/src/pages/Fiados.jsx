@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Search, DollarSign, Plus, X, RefreshCw, ChevronDown, ChevronUp, CheckSquare, Trash2, UserSearch } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../services/auditService';
+import { useCompany } from '../contexts/CompanyContext';
 
 const Fiados = () => {
+  const { company } = useCompany();
   const [fiados, setFiados] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -23,7 +25,11 @@ const Fiados = () => {
   const [showFiadoClientDD, setShowFiadoClientDD] = useState(false);
   const [fiadoItems, setFiadoItems] = useState([{ description: '', quantity: 1, unit_price: 0 }]);
 
-  useEffect(() => { fetchFiados(); }, []);
+  useEffect(() => {
+    if (company) {
+      fetchFiados();
+    }
+  }, [company]);
 
   const fetchFiados = async () => {
     setIsLoading(true);

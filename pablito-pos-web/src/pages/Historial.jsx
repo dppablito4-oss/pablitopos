@@ -30,7 +30,11 @@ const Historial = () => {
   const [printFormat, setPrintFormat] = useState('TICKET');
   const [downloadPdfTrigger, setDownloadPdfTrigger] = useState(false);
 
-  useEffect(() => { fetchVentas(); }, []);
+  useEffect(() => {
+    if (company) {
+      fetchVentas();
+    }
+  }, [company]);
 
   useEffect(() => {
     if (!downloadPdfTrigger || !receiptToPrint) return;

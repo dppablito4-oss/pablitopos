@@ -3,10 +3,12 @@ import { Search, Plus, Edit, Trash2, X, Save, Package, Upload } from 'lucide-rea
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../services/auditService';
 import * as XLSX from 'xlsx';
+import { useCompany } from '../contexts/CompanyContext';
 
 const EMPTY_FORM = { code: '', name: '', unit: 'UND', price: '', stock: '', active: true };
 
 const Productos = () => {
+  const { company } = useCompany();
   const [productos, setProductos] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -17,7 +19,11 @@ const Productos = () => {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
 
-  useEffect(() => { fetchProductos(); }, []);
+  useEffect(() => {
+    if (company) {
+      fetchProductos();
+    }
+  }, [company]);
 
   const fetchProductos = async () => {
     setIsLoading(true);

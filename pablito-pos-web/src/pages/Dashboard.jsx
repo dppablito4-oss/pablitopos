@@ -13,7 +13,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [hora, setHora] = useState(new Date());
-  const { regimeConfig } = useCompany();
+  const { company, regimeConfig } = useCompany();
 
   // Reloj en vivo
   useEffect(() => {
@@ -22,10 +22,12 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30000); // auto-refresh 30s
-    return () => clearInterval(interval);
-  }, []);
+    if (company) {
+      fetchStats();
+      const interval = setInterval(fetchStats, 30000); // auto-refresh 30s
+      return () => clearInterval(interval);
+    }
+  }, [company]);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -86,14 +88,23 @@ const Dashboard = () => {
   const monthlyLimit = regimeConfig?.monthlyLimit || null;
   const [ventasMes, setVentasMes] = useState(0);
   useEffect(() => {
+    if (!company) return;
     const fetchMes = async () => {
-      const mesStart = new Date(); mesStart.setDate(1); mesStart.setHours(0,0,0,0);
-      const { data } = await supabase.from('sales').select('total').gte('datetime', mesStart.toISOString()).eq('is_proforma', false);
-      const total = (data||[]).reduce((s,v) => s + parseFloat(v.total||0), 0);
-      setVentasMes(total);
+      try {
+        const mesStart = new Date(); mesStart.setDate(1); mesStart.setHours(0,0,0,0);
+        const { data, error } = await supabase.from('sales').select('total').gte('datetime', mesStart.toISOString()).eq('is_proforma', false);
+        if (error) {
+          console.error("Supabase monthly sales query error:", error);
+          return;
+        }
+        const total = (data||[]).reduce((s,v) => s + parseFloat(v.total||0), 0);
+        setVentasMes(total);
+      } catch (err) {
+        console.error("Exception fetching monthly sales:", err);
+      }
     };
     fetchMes();
-  }, [stats]);
+  }, [stats, company]);
 
   const nrusPct = monthlyLimit ? Math.min(100, (ventasMes / monthlyLimit) * 100) : 0;
   const nrusColor = nrusPct >= 90 ? 'progress-error' : nrusPct >= 70 ? 'progress-warning' : 'progress-success';

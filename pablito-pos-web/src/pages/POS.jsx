@@ -31,9 +31,11 @@ const POS = () => {
   const { isDangerZone, isExceeded, limit, isLoading: nrusLoading } = useNrusValve(parseFloat(total));
 
   useEffect(() => {
-    fetchProducts();
-    fetchClients();
-  }, []);
+    if (company) {
+      fetchProducts();
+      fetchClients();
+    }
+  }, [company]);
 
   const fetchClients = async () => {
     try {

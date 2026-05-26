@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, X, Save, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { logAudit } from '../services/auditService';
+import { useCompany } from '../contexts/CompanyContext';
 
 const EMPTY_FORM = { dni: '', full_name: '', phone: '', email: '', address: '' };
 
 const Clientes = () => {
+  const { company } = useCompany();
   const [clientes, setClientes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -16,7 +18,11 @@ const Clientes = () => {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
 
-  useEffect(() => { fetchClientes(); }, []);
+  useEffect(() => {
+    if (company) {
+      fetchClientes();
+    }
+  }, [company]);
 
   const fetchClientes = async () => {
     setIsLoading(true);

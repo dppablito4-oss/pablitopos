@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Si es un logout explícito o login exitoso posterior, asegurar apagar loading
-        if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+        if (event === 'SIGNED_OUT' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
           clearTimeout(timeoutId);
           setLoading(false);
         }
