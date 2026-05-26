@@ -60,13 +60,16 @@ export const CompanyProvider = ({ children }) => {
         .select('*')
         .eq('id', profile.company_id)
         .single();
-      if (!error && data) {
+      if (error) {
+        console.error("Supabase company_profile query error:", error);
+        setCompany(null);
+      } else if (data) {
         setCompany(data);
       } else {
         setCompany(null);
       }
     } catch (e) {
-      console.error('Error loading company:', e);
+      console.error('Error loading company exception:', e);
       setCompany(null);
     }
     setLoading(false);

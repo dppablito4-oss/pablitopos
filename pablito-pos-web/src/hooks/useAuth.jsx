@@ -21,13 +21,16 @@ export const AuthProvider = ({ children }) => {
         .select('*')
         .eq('id', userId)
         .single();
-      if (!error && data) {
+      if (error) {
+        console.error("Supabase profiles query error:", error);
+        setProfile(null);
+      } else if (data) {
         setProfile(data);
       } else {
         setProfile(null);
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.error('Error fetching user profile exception:', err);
       setProfile(null);
     }
   };
