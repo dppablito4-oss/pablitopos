@@ -13,16 +13,23 @@ const Layout = () => {
 
   const isSuperAdmin = profile?.role === 'superadmin';
   const isAdmin = profile?.role === 'admin' || isSuperAdmin;
+  const isCajero = profile?.role === 'cajero';
   const roleName = profile?.role === 'superadmin' ? 'Super Admin' : (profile?.role === 'admin' ? 'Administrador' : 'Cajero');
 
   const navigation = [
     { name: 'Ventas', href: '/pos', icon: ShoppingCart },
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Historial', href: '/historial', icon: FileText },
+  ];
+
+  if (!isCajero) {
+    navigation.push({ name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard });
+    navigation.push({ name: 'Historial', href: '/historial', icon: FileText });
+  }
+
+  navigation.push(
     { name: 'Clientes', href: '/clientes', icon: Users },
     { name: 'Productos', href: '/productos', icon: Package },
-    { name: 'Fiados', href: '/fiados', icon: CreditCard },
-  ];
+    { name: 'Fiados', href: '/fiados', icon: CreditCard }
+  );
 
   if (isAdmin) {
     navigation.push({ name: 'Configuración', href: '/configuracion', icon: Settings });
