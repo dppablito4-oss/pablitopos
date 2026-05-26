@@ -35,46 +35,56 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de seguridad: Si Supabase o la red tardan más de 4 segundos,
-    // forzar loading a false para que la app no se quede colgada en "Verificando sesión..."
+    // Timeout de seguridad: 6 segundos por si Supabase está frío o hay problemas de red
     const timeoutId = setTimeout(() => {
       if (mounted) {
         console.warn("⏱️ Auth timeout: Forzando fin de verificación de sesión.");
         setLoading(false);
       }
-    }, 4000);
+    }, 6000);
 
-    // Obtener sesión actual al cargar
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      const activeUser = session?.user ?? null;
-      setUser(activeUser);
-      if (activeUser) {
-        await fetchProfile(activeUser.id);
-      }
-      clearTimeout(timeoutId);
-      setLoading(false);
-    }).catch(err => {
-      console.error("Error getting session:", err);
-      if (mounted) {
-        clearTimeout(timeoutId);
-        setLoading(false);
-      }
-    });
-
-    // Escuchar cambios de autenticación (login, logout, refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+    // Obtener sesión de forma aislada al inicializar la app
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+        if (sessionErr) throw sessionErr;
+        
         if (!mounted) return;
         const activeUser = session?.user ?? null;
         setUser(activeUser);
         if (activeUser) {
           await fetchProfile(activeUser.id);
+        }
+      } catch (err) {
+        console.error("Error in initAuth session load:", err);
+      } finally {
+        if (mounted) {
+          clearTimeout(timeoutId);
+          setLoading(false);
+        }
+      }
+    };
+
+    initAuth();
+
+    // Escuchar futuros cambios de sesión, pero SIN apagar loading de forma prematura
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        const activeUser = session?.user ?? null;
+        setUser(activeUser);
+        
+        if (activeUser) {
+          await fetchProfile(activeUser.id);
         } else {
           setProfile(null);
         }
-        clearTimeout(timeoutId);
-        setLoading(false); // Forzar fin de carga en cambio de estado auth
+
+        // Si es un logout explícito o login exitoso posterior, asegurar apagar loading
+        if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+          clearTimeout(timeoutId);
+          setLoading(false);
+        }
       }
     );
 

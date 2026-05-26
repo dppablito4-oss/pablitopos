@@ -36,8 +36,13 @@ const POS = () => {
   }, []);
 
   const fetchClients = async () => {
-    const { data } = await supabase.from('clients').select('id, dni, full_name, phone').order('full_name');
-    if (data) setClients(data);
+    try {
+      const { data, error } = await supabase.from('clients').select('id, dni, full_name, phone').order('full_name');
+      if (error) throw error;
+      if (data) setClients(data);
+    } catch (err) {
+      console.error("Error loading clients in POS:", err);
+    }
   };
 
   // Validar y forzar cambio si NRUS excede
@@ -50,14 +55,21 @@ const POS = () => {
   const fetchProducts = async () => {
     setIsLoading(true);
     setDbError(null);
-    const { data, error } = await supabase.from('products').select('*').eq('active', true).order('name').limit(200);
-    if (error) {
-      setDbError('No se pudo conectar a la base de datos: ' + error.message);
+    try {
+      const { data, error } = await supabase.from('products').select('*').eq('active', true).order('name').limit(200);
+      if (error) {
+        setDbError('No se pudo conectar a la base de datos: ' + error.message);
+        setProducts([]);
+      } else {
+        setProducts(data || []);
+      }
+    } catch (err) {
+      console.error("Error loading products in POS:", err);
+      setDbError('Error de red al consultar productos.');
       setProducts([]);
-    } else {
-      setProducts(data || []);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
