@@ -366,7 +366,7 @@ const Historial = () => {
     
     {/* Componente Oculto para Descarga PDF (Fuera de pantalla) */}
     {receiptToPrint && downloadPdfTrigger && (
-      <div style={{ position: 'absolute', top: 0, left: 0, opacity: 0, pointerEvents: 'none', zIndex: -100 }}>
+      <div style={{ position: 'absolute', top: 0, left: '-9999px', zIndex: -100 }}>
         <div id="historial-print-receipt" className="bg-white" style={{ width: printFormat === 'TICKET' ? '302px' : '794px' }}>
           <PrintReceipt 
             cart={receiptToPrint.cart} 
