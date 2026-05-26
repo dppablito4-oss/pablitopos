@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Package, Users, FileText, Settings, LayoutDashboard, LogOut, X, Menu, CreditCard } from 'lucide-react';
+import { ShoppingCart, Package, Users, FileText, Settings, LayoutDashboard, LogOut, X, Menu, CreditCard, Shield } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+
+import { useCompany } from '../contexts/CompanyContext';
 
 const Layout = () => {
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const { company } = useCompany();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isSuperAdmin = profile?.role === 'superadmin';
+  const isAdmin = profile?.role === 'admin' || isSuperAdmin;
+  const roleName = profile?.role === 'superadmin' ? 'Super Admin' : (profile?.role === 'admin' ? 'Administrador' : 'Cajero');
 
   const navigation = [
     { name: 'Ventas', href: '/pos', icon: ShoppingCart },
@@ -15,8 +22,15 @@ const Layout = () => {
     { name: 'Clientes', href: '/clientes', icon: Users },
     { name: 'Productos', href: '/productos', icon: Package },
     { name: 'Fiados', href: '/fiados', icon: CreditCard },
-    { name: 'Configuración', href: '/configuracion', icon: Settings },
   ];
+
+  if (isAdmin) {
+    navigation.push({ name: 'Configuración', href: '/configuracion', icon: Settings });
+  }
+
+  if (isSuperAdmin) {
+    navigation.push({ name: 'SaaS Admin', href: '/superadmin', icon: Shield });
+  }
 
   const NavLinks = ({ onNavigate }) => (
     <div className="flex flex-col gap-1">
@@ -73,13 +87,14 @@ const Layout = () => {
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
               style={{ background: 'rgba(129, 140, 248, 0.1)', color: '#818cf8' }}>
-              {user?.email?.substring(0, 2).toUpperCase() || 'US'}
+              {company?.name?.substring(0, 2).toUpperCase() || 'US'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate text-base-content/70">{user?.email || 'Usuario'}</p>
+              <p className="text-xs font-semibold truncate text-base-content">{company?.name || 'Mi Empresa'}</p>
+              <p className="text-[10px] font-medium truncate text-base-content/40 mb-1">{roleName}</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                <p className="text-[10px] text-base-content/30">En línea</p>
+                <p className="text-[9px] text-base-content/30 truncate">{user?.email}</p>
               </div>
             </div>
           </div>

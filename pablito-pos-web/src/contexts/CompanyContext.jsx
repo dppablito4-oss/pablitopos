@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 
 export const TAX_REGIMES = {
   NRUS: 'nrus',
@@ -42,25 +43,38 @@ export const REGIME_CONFIG = {
 const CompanyContext = createContext(null);
 
 export const CompanyProvider = ({ children }) => {
+  const { profile } = useAuth();
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCompany = async () => {
+    if (!profile?.company_id) {
+      setCompany(null);
+      setLoading(false);
+      return;
+    }
+    
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('company_profile')
         .select('*')
-        .eq('is_active', true)
-        .limit(1)
+        .eq('id', profile.company_id)
         .single();
-      if (data) setCompany(data);
+      if (!error && data) {
+        setCompany(data);
+      } else {
+        setCompany(null);
+      }
     } catch (e) {
       console.error('Error loading company:', e);
+      setCompany(null);
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchCompany(); }, []);
+  useEffect(() => { 
+    fetchCompany(); 
+  }, [profile]);
 
   const regime = company?.tax_regime || 'nrus';
   const regimeConfig = REGIME_CONFIG[regime] || REGIME_CONFIG.nrus;

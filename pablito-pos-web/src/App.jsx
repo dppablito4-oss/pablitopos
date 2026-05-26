@@ -11,6 +11,8 @@ import Historial from './pages/Historial';
 import Configuracion from './pages/Configuracion';
 import Fiados from './pages/Fiados';
 import Verificacion from './pages/Verificacion';
+import SuperAdmin from './pages/SuperAdmin';
+import Registrarse from './pages/Registrarse';
 import { CompanyProvider } from './contexts/CompanyContext';
 import { pingSunatApi } from './lib/sunatService';
 import { useEffect } from 'react';
@@ -46,10 +48,12 @@ function App() {
               <Route path="historial" element={<Historial />} />
               <Route path="fiados" element={<Fiados />} />
               <Route path="configuracion" element={<Configuracion />} />
+              <Route path="superadmin" element={<SuperAdmin />} />
             </Route>
 
             {/* Rutas públicas */}
             <Route path="/verificacion" element={<Verificacion />} />
+            <Route path="/registrarse" element={<Registrarse />} />
 
             {/* Cualquier otra ruta → Login */}
             <Route path="*" element={<Navigate to="/login" replace />} />
