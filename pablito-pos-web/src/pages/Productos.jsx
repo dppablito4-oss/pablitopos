@@ -22,13 +22,19 @@ const Productos = () => {
   const fetchProductos = async () => {
     setIsLoading(true);
     setError(null);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('name', { ascending: true });
-    if (error) { setError(error.message); }
-    else { setProductos(data || []); }
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) { setError(error.message); }
+      else { setProductos(data || []); }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Error de conexión');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filtered = productos.filter(p =>

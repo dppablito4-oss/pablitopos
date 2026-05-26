@@ -28,13 +28,19 @@ const Fiados = () => {
   const fetchFiados = async () => {
     setIsLoading(true);
     setError(null);
-    const { data, error } = await supabase
-      .from('fiados')
-      .select(`*, clients(full_name, dni, phone)`)
-      .order('created_at', { ascending: false });
-    if (error) { setError(error.message); }
-    else { setFiados(data || []); }
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('fiados')
+        .select(`*, clients(full_name, dni, phone)`)
+        .order('created_at', { ascending: false });
+      if (error) { setError(error.message); }
+      else { setFiados(data || []); }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Error de conexión');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fetchItems = async (fiadoId) => {

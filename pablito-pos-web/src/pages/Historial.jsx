@@ -49,19 +49,17 @@ const Historial = () => {
       try {
         // 1. Capturar el HTML como imagen con html2canvas
         // Usamos onclone para limpiar colores oklch() que html2canvas no soporta
+        const scaleVal = 4;
         const canvas = await html2canvas(element, {
-          scale: 2,
+          scale: scaleVal,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
           onclone: (clonedDoc) => {
-            // Recorrer TODOS los elementos del documento clonado
             const allElements = clonedDoc.querySelectorAll('*');
             allElements.forEach(el => {
               const style = el.style;
               const computed = clonedDoc.defaultView.getComputedStyle(el);
-              // Forzar color y background-color a valores seguros
-              // si contienen oklch (DaisyUI/Tailwind v4)
               const color = computed.color;
               const bgColor = computed.backgroundColor;
               const borderColor = computed.borderColor;
@@ -79,41 +77,41 @@ const Historial = () => {
           }
         });
 
-        // 2. Convertir canvas a imagen
         const imgData = canvas.toDataURL('image/png');
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
+        
+        // Medidas físicas reales del elemento en píxeles de pantalla
+        const originalWidth = element.offsetWidth || (printFormat === 'TICKET' ? 302 : 794);
+        const originalHeight = element.offsetHeight || (canvas.height / scaleVal);
 
-        // 3. Crear el PDF con jsPDF
-        // Para ticket: ancho fijo 80mm, alto proporcional al contenido
-        // Para A4: formato estándar
         const isTicketFormat = printFormat === 'TICKET';
         
         let pdf;
         if (isTicketFormat) {
-          // Calcular alto proporcional: el contenedor mide 302px de ancho
-          // 80mm = 302px, entonces 1px = 80/302 mm
-          const pxToMm = 80 / 302;
-          const ticketHeightMm = (imgHeight / 2) * pxToMm + 5; // /2 por scale:2, +5mm margen
+          // El ticket térmico tiene 80mm de ancho. 
+          // Calculamos la altura en mm proporcionalmente al contenido real del elemento.
+          const pxToMm = 80 / originalWidth;
+          const ticketHeightMm = originalHeight * pxToMm + 5; // +5mm margen de seguridad de salida
           pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
             format: [80, ticketHeightMm],
           });
-          pdf.addImage(imgData, 'PNG', 0, 0, 80, (imgHeight / 2) * pxToMm);
+          pdf.addImage(imgData, 'PNG', 0, 0, 80, originalHeight * pxToMm);
         } else {
           pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
             format: 'a4',
           });
-          // Calcular dimensiones para que quepa en A4
           const pdfWidth = pdf.internal.pageSize.getWidth();
           const pdfHeight = pdf.internal.pageSize.getHeight();
-          const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-          const scaledWidth = imgWidth * ratio;
-          const scaledHeight = imgHeight * ratio;
-          pdf.addImage(imgData, 'PNG', 0, 0, scaledWidth, scaledHeight);
+          
+          // Ancho de A4 es 210mm. Usamos un margen de 10mm a cada lado, ancho útil = 190mm.
+          const margin = 10;
+          const targetWidth = pdfWidth - (margin * 2);
+          const targetHeight = (originalHeight * targetWidth) / originalWidth;
+          
+          pdf.addImage(imgData, 'PNG', margin, margin, targetWidth, targetHeight);
         }
 
         // 5. Generar nombre de archivo y descargar
@@ -134,14 +132,20 @@ const Historial = () => {
   const fetchVentas = async () => {
     setIsLoading(true);
     setError(null);
-    const { data, error } = await supabase
-      .from('sales')
-      .select(`*, clients(full_name, dni)`)
-      .order('datetime', { ascending: false })
-      .limit(200);
-    if (error) { setError(error.message); }
-    else { setVentas(data || []); }
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select(`*, clients(full_name, dni)`)
+        .order('datetime', { ascending: false })
+        .limit(200);
+      if (error) { setError(error.message); }
+      else { setVentas(data || []); }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Error de conexión');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fetchItems = async (saleId) => {

@@ -21,13 +21,19 @@ const Clientes = () => {
   const fetchClientes = async () => {
     setIsLoading(true);
     setError(null);
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('full_name', { ascending: true });
-    if (error) { setError(error.message); }
-    else { setClientes(data || []); }
-    setIsLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('full_name', { ascending: true });
+      if (error) { setError(error.message); }
+      else { setClientes(data || []); }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Error de conexión');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filtered = clientes.filter(c =>
