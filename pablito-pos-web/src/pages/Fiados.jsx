@@ -11,8 +11,10 @@ const Fiados = () => {
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [itemsCache, setItemsCache] = useState({});
+  const [paymentsCache, setPaymentsCache] = useState({});
   const [abonoModal, setAbonoModal] = useState(null);
   const [abonoAmount, setAbonoAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('efectivo');
   const [saving, setSaving] = useState(false);
   const [createModal, setCreateModal] = useState(false);
   const [fiadoClients, setFiadoClients] = useState([]);
@@ -44,9 +46,22 @@ const Fiados = () => {
     setItemsCache(prev => ({ ...prev, [fiadoId]: data || [] }));
   };
 
+  const fetchPayments = async (fiadoId) => {
+    const { data } = await supabase
+      .from('fiado_payments')
+      .select('*')
+      .eq('fiado_id', fiadoId)
+      .order('created_at', { ascending: false });
+    setPaymentsCache(prev => ({ ...prev, [fiadoId]: data || [] }));
+  };
+
   const toggleExpand = (id) => {
     if (expandedId === id) { setExpandedId(null); }
-    else { setExpandedId(id); fetchItems(id); }
+    else { 
+      setExpandedId(id); 
+      fetchItems(id); 
+      fetchPayments(id);
+    }
   };
 
   const filtered = fiados.filter(f => {
@@ -66,6 +81,7 @@ const Fiados = () => {
   const openAbono = (f) => {
     setAbonoModal({ fiadoId: f.id, pendiente: parseFloat(f.total_pendiente), code: f.code });
     setAbonoAmount('');
+    setPaymentMethod('efectivo');
   };
 
   const handleAbono = async () => {
@@ -73,34 +89,82 @@ const Fiados = () => {
     if (!monto || monto <= 0) return alert('Ingresa un monto válido.');
     if (monto > abonoModal.pendiente) return alert(`El monto no puede superar lo pendiente: S/ ${abonoModal.pendiente.toFixed(2)}`);
     setSaving(true);
-    // Obtener fiado actual
-    const { data: fData } = await supabase.from('fiados').select('*').eq('id', abonoModal.fiadoId).single();
-    const nuevoPagado = parseFloat(fData.total_pagado) + monto;
-    const nuevoPendiente = parseFloat(fData.total_bruto) - nuevoPagado;
-    const nuevoStatus = nuevoPendiente <= 0 ? 'pagado' : 'pendiente';
-    const { error } = await supabase.from('fiados').update({
-      total_pagado: nuevoPagado,
-      total_pendiente: Math.max(0, nuevoPendiente),
-      status: nuevoStatus,
-      updated_at: new Date().toISOString(),
-    }).eq('id', abonoModal.fiadoId);
-    setSaving(false);
-    if (error) { alert('Error: ' + error.message); return; }
-    logAudit('FIADO_ABONO', `${abonoModal.code} | Abono: S/${monto.toFixed(2)}`);
-    setAbonoModal(null);
-    fetchFiados();
+    try {
+      // 1. Registrar el pago en el historial de pagos
+      const { error: pError } = await supabase.from('fiado_payments').insert([{
+        fiado_id: abonoModal.fiadoId,
+        amount: monto,
+        payment_method: paymentMethod
+      }]);
+      if (pError) throw pError;
+
+      // 2. Obtener fiado actual y actualizar totales
+      const { data: fData, error: fGetError } = await supabase.from('fiados').select('*').eq('id', abonoModal.fiadoId).single();
+      if (fGetError) throw fGetError;
+
+      const nuevoPagado = parseFloat(fData.total_pagado) + monto;
+      const nuevoPendiente = parseFloat(fData.total_bruto) - nuevoPagado;
+      const nuevoStatus = nuevoPendiente <= 0 ? 'pagado' : 'pendiente';
+
+      const { error: fUpdateError } = await supabase.from('fiados').update({
+        total_pagado: nuevoPagado,
+        total_pendiente: Math.max(0, nuevoPendiente),
+        status: nuevoStatus,
+        updated_at: new Date().toISOString(),
+      }).eq('id', abonoModal.fiadoId);
+      if (fUpdateError) throw fUpdateError;
+
+      logAudit('FIADO_ABONO', `${abonoModal.code} | Abono: S/${monto.toFixed(2)} vía ${paymentMethod}`);
+      setAbonoModal(null);
+      fetchFiados();
+    } catch (error) {
+      console.error(error);
+      alert('Error registrando abono: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleMarcarPagado = async (f) => {
-    if (!confirm(`¿Marcar como PAGADO el fiado ${f.code} de ${f.clients?.full_name}?`)) return;
-    const { error } = await supabase.from('fiados').update({
-      total_pagado: parseFloat(f.total_bruto),
-      total_pendiente: 0,
-      status: 'pagado',
-      updated_at: new Date().toISOString(),
-    }).eq('id', f.id);
-    if (error) alert('Error: ' + error.message);
-    else { logAudit('FIADO_PAGADO', `${f.code} | ${f.clients?.full_name}`); fetchFiados(); }
+    const pendiente = parseFloat(f.total_pendiente);
+    if (pendiente <= 0) return;
+
+    const method = prompt(`¿Con qué método de pago cancela el saldo de S/ ${pendiente.toFixed(2)}?\nEscribe: efectivo, yape, plin, o tarjeta:`, 'efectivo');
+    if (method === null) return; // cancelado por usuario
+
+    const validMethods = ['efectivo', 'yape', 'plin', 'tarjeta'];
+    const selectedMethod = method.trim().toLowerCase();
+    if (!validMethods.includes(selectedMethod)) {
+      return alert('Método no válido. Debe ser: efectivo, yape, plin, o tarjeta.');
+    }
+
+    setSaving(true);
+    try {
+      // 1. Insertar el abono final
+      const { error: pError } = await supabase.from('fiado_payments').insert([{
+        fiado_id: f.id,
+        amount: pendiente,
+        payment_method: selectedMethod
+      }]);
+      if (pError) throw pError;
+
+      // 2. Marcar como pagado
+      const { error: fError } = await supabase.from('fiados').update({
+        total_pagado: parseFloat(f.total_bruto),
+        total_pendiente: 0,
+        status: 'pagado',
+        updated_at: new Date().toISOString(),
+      }).eq('id', f.id);
+      if (fError) throw fError;
+
+      logAudit('FIADO_PAGADO', `${f.code} | Cancelado vía ${selectedMethod} | ${f.clients?.full_name}`);
+      fetchFiados();
+    } catch (err) {
+      console.error(err);
+      alert('Error al liquidar fiado: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // === CREAR FIADO ===
@@ -250,33 +314,65 @@ const Fiados = () => {
                     {expandedId === f.id && (
                       <tr className="bg-base-200/50">
                         <td colSpan={7} className="p-4">
-                          <p className="text-xs text-base-content/60 font-semibold uppercase tracking-wide mb-2">Items del fiado</p>
-                          {itemsCache[f.id] ? (
-                            itemsCache[f.id].length === 0 ? (
-                              <p className="text-sm text-base-content/40">Sin items registrados.</p>
-                            ) : (
-                              <table className="table table-xs w-full max-w-xl">
-                                <thead><tr><th>Descripción</th><th>Bloque</th><th>Cant.</th><th>P. Unit.</th><th>Subtotal</th><th>Estado</th></tr></thead>
-                                <tbody>
-                                  {itemsCache[f.id].map(item => (
-                                    <tr key={item.id}>
-                                      <td>{item.description}</td>
-                                      <td>{item.block || '—'}</td>
-                                      <td>{item.quantity}</td>
-                                      <td>S/ {parseFloat(item.unit_price||0).toFixed(2)}</td>
-                                      <td>S/ {parseFloat(item.subtotal||0).toFixed(2)}</td>
-                                      <td>
-                                        {item.status === 'pagado'
-                                          ? <span className="badge badge-success badge-sm">Pagado</span>
-                                          : <span className="badge badge-warning badge-sm">Pendiente</span>}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )
-                          ) : <span className="loading loading-spinner loading-sm"/>}
-                          <p className="text-xs text-base-content/40 mt-2">Creado: {new Date(f.created_at).toLocaleString('es-PE')}</p>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Columna Izquierda: Items del Fiado */}
+                            <div>
+                              <p className="text-xs text-base-content/60 font-semibold uppercase tracking-wide mb-2">Items del fiado</p>
+                              {itemsCache[f.id] ? (
+                                itemsCache[f.id].length === 0 ? (
+                                  <p className="text-sm text-base-content/40">Sin items registrados.</p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="table table-xs w-full">
+                                      <thead><tr><th>Descripción</th><th>Bloque</th><th>Cant.</th><th>P. Unit.</th><th>Subtotal</th><th>Estado</th></tr></thead>
+                                      <tbody>
+                                        {itemsCache[f.id].map(item => (
+                                          <tr key={item.id}>
+                                            <td>{item.description}</td>
+                                            <td>{item.block || '—'}</td>
+                                            <td>{item.quantity}</td>
+                                            <td>S/ {parseFloat(item.unit_price||0).toFixed(2)}</td>
+                                            <td>S/ {parseFloat(item.subtotal||0).toFixed(2)}</td>
+                                            <td>
+                                              {item.status === 'pagado'
+                                                ? <span className="badge badge-success badge-sm">Pagado</span>
+                                                : <span className="badge badge-warning badge-sm">Pendiente</span>}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )
+                              ) : <span className="loading loading-spinner loading-sm"/>}
+                            </div>
+
+                            {/* Columna Derecha: Historial de Abonos */}
+                            <div>
+                              <p className="text-xs text-base-content/60 font-semibold uppercase tracking-wide mb-2">Historial de Abonos (Pagos)</p>
+                              {paymentsCache[f.id] ? (
+                                paymentsCache[f.id].length === 0 ? (
+                                  <p className="text-xs text-base-content/40 py-4 text-center bg-base-300/10 rounded-xl">No se han registrado abonos para este fiado.</p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="table table-xs w-full">
+                                      <thead><tr><th>Fecha</th><th>Método de Pago</th><th className="text-right">Monto</th></tr></thead>
+                                      <tbody>
+                                        {paymentsCache[f.id].map(p => (
+                                          <tr key={p.id} className="hover:bg-base-300/10">
+                                            <td>{new Date(p.created_at).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                                            <td className="capitalize font-medium">{p.payment_method}</td>
+                                            <td className="text-right font-bold text-success">S/ {parseFloat(p.amount).toFixed(2)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )
+                              ) : <span className="loading loading-spinner loading-sm"/>}
+                            </div>
+                          </div>
+                          <p className="text-xs text-base-content/40 mt-4 pt-2 border-t border-base-300/30">Creado: {new Date(f.created_at).toLocaleString('es-PE')}</p>
                         </td>
                       </tr>
                     )}
@@ -298,7 +394,7 @@ const Fiados = () => {
             </div>
             <p className="text-base-content/70 mb-1">Fiado: <span className="font-bold">{abonoModal.code}</span></p>
             <p className="text-base-content/70 mb-4">Pendiente: <span className="font-bold text-error">S/ {abonoModal.pendiente.toFixed(2)}</span></p>
-            <div className="form-control">
+            <div className="form-control mb-3">
               <label className="label"><span className="label-text font-semibold">Monto a abonar (S/)</span></label>
               <input
                 type="number"
@@ -311,6 +407,19 @@ const Fiados = () => {
                 onChange={e => setAbonoAmount(e.target.value)}
                 autoFocus
               />
+            </div>
+            <div className="form-control">
+              <label className="label"><span className="label-text font-semibold">Método de Pago</span></label>
+              <select 
+                className="select select-bordered w-full font-semibold"
+                value={paymentMethod}
+                onChange={e => setPaymentMethod(e.target.value)}
+              >
+                <option value="efectivo">💵 Efectivo</option>
+                <option value="yape">📲 Yape</option>
+                <option value="plin">💠 Plin</option>
+                <option value="tarjeta">💳 Tarjeta</option>
+              </select>
             </div>
             <div className="modal-action">
               <button className="btn btn-ghost" onClick={() => setAbonoModal(null)}>Cancelar</button>
