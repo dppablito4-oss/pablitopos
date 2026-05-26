@@ -12,6 +12,8 @@ const Registrarse = () => {
   const [verifying, setVerifying] = useState(true);
   const [inviteValid, setInviteValid] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [inviteType, setInviteType] = useState('company');
+  const [targetCompanyId, setTargetCompanyId] = useState(null);
 
   // Estados del Formulario
   const [step, setStep] = useState(1);
@@ -50,13 +52,15 @@ const Registrarse = () => {
           setInviteError('El enlace de invitación no existe o es inválido.');
           setInviteValid(false);
         } else if (data.is_used) {
-          setInviteError('Este enlace de invitación ya fue utilizado para registrar una tienda.');
+          setInviteError('Este enlace de invitación ya fue utilizado.');
           setInviteValid(false);
         } else if (new Date(data.expires_at) < new Date()) {
           setInviteError('Esta invitación ha expirado (validez de 24 horas).');
           setInviteValid(false);
         } else {
           setInviteValid(true);
+          setInviteType(data.type || 'company');
+          setTargetCompanyId(data.company_id || null);
           if (data.email) {
             setFormData(prev => ({ ...prev, email: data.email }));
           }
@@ -90,7 +94,11 @@ const Registrarse = () => {
         return;
       }
       setError('');
-      setStep(2);
+      if (inviteType === 'cajero') {
+        handleSubmit();
+      } else {
+        setStep(2);
+      }
     }
   };
 
@@ -100,11 +108,11 @@ const Registrarse = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setError('');
     setLoading(true);
 
-    if (!formData.companyName || !formData.companyRuc) {
+    if (inviteType === 'company' && (!formData.companyName || !formData.companyRuc)) {
       setError('Por favor completa el nombre y RUC de la empresa.');
       setLoading(false);
       return;
@@ -126,30 +134,33 @@ const Registrarse = () => {
       const newUser = authData.user;
       if (!newUser) throw new Error('No se pudo crear el usuario.');
 
-      // 2. Crear el perfil de empresa en company_profile
-      const { data: companyData, error: companyError } = await supabase
-        .from('company_profile')
-        .insert([{
-          name: formData.companyName,
-          ruc: formData.companyRuc,
-          address: formData.companyAddress || null,
-          phone: formData.companyPhone || null,
-          tax_regime: formData.taxRegime,
-          is_active: true
-        }])
-        .select('id')
-        .single();
+      let companyIdToBind = targetCompanyId;
 
-      if (companyError) throw companyError;
+      if (inviteType === 'company') {
+        // 2. Crear el perfil de empresa en company_profile
+        const { data: companyData, error: companyError } = await supabase
+          .from('company_profile')
+          .insert([{
+            name: formData.companyName,
+            ruc: formData.companyRuc,
+            address: formData.companyAddress || null,
+            phone: formData.companyPhone || null,
+            tax_regime: formData.taxRegime,
+            is_active: true
+          }])
+          .select('id')
+          .single();
 
-      // 3. Vincular el perfil de usuario recién creado como admin de esa empresa
-      // Nota: El trigger handle_new_user ya creó el registro en 'profiles' al registrarse en Auth,
-      // por lo que hacemos un UPDATE sobre el perfil existente de este usuario.
+        if (companyError) throw companyError;
+        companyIdToBind = companyData.id;
+      }
+
+      // 3. Vincular el perfil de usuario recién creado
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          company_id: companyData.id,
-          role: 'admin',
+          company_id: companyIdToBind,
+          role: inviteType === 'company' ? 'admin' : 'cajero',
           full_name: formData.fullName
         })
         .eq('id', newUser.id);
@@ -169,8 +180,8 @@ const Registrarse = () => {
       window.location.reload(); // Recargar para que los contextos carguen la nueva tienda
 
     } catch (err) {
-      console.error('Error registering tenant:', err);
-      setError(err.message || 'Ocurrió un error al registrar la tienda.');
+      console.error('Error registering:', err);
+      setError(err.message || 'Ocurrió un error al registrarse.');
     } finally {
       setLoading(false);
     }
@@ -217,16 +228,24 @@ const Registrarse = () => {
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto text-primary mb-3">
             <ShieldCheck size={20} />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Registro de Nueva Tienda</h1>
-          <p className="text-xs text-base-content/50 mt-1">Completa los pasos para activar tu facturación electrónica.</p>
+          <h1 className="text-xl font-bold tracking-tight">
+            {inviteType === 'cajero' ? 'Registro de Personal' : 'Registro de Nueva Tienda'}
+          </h1>
+          <p className="text-xs text-base-content/50 mt-1">
+            {inviteType === 'cajero' 
+              ? 'Crea tu cuenta de Cajero para empezar a vender.' 
+              : 'Completa los pasos para activar tu facturación electrónica.'}
+          </p>
         </div>
 
-        {/* PROGRESS STEP */}
-        <div className="flex items-center justify-center gap-4 text-xs font-semibold py-1">
-          <span className={`px-2.5 py-1 rounded-lg ${step === 1 ? 'bg-primary text-white' : 'bg-base-300 text-base-content/50'}`}>1. Cuenta</span>
-          <div className="w-8 h-px bg-base-300" />
-          <span className={`px-2.5 py-1 rounded-lg ${step === 2 ? 'bg-primary text-white' : 'bg-base-300 text-base-content/50'}`}>2. Tienda</span>
-        </div>
+        {/* PROGRESS STEP (Solo se muestra para tiendas con 2 pasos) */}
+        {inviteType === 'company' && (
+          <div className="flex items-center justify-center gap-4 text-xs font-semibold py-1">
+            <span className={`px-2.5 py-1 rounded-lg ${step === 1 ? 'bg-primary text-white' : 'bg-base-300 text-base-content/50'}`}>1. Cuenta</span>
+            <div className="w-8 h-px bg-base-300" />
+            <span className={`px-2.5 py-1 rounded-lg ${step === 2 ? 'bg-primary text-white' : 'bg-base-300 text-base-content/50'}`}>2. Tienda</span>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-error text-xs flex items-center gap-2">
@@ -235,7 +254,7 @@ const Registrarse = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={inviteType === 'cajero' ? handleSubmit : undefined} className="space-y-4">
           
           {/* STEP 1: ACCOUNT DETAILS */}
           {step === 1 && (
@@ -288,14 +307,29 @@ const Registrarse = () => {
                 </div>
               </div>
 
-              <button 
-                type="button" 
-                onClick={nextStep}
-                className="btn btn-sm btn-primary w-full gap-2 text-xs h-9 rounded-xl font-bold mt-2"
-              >
-                Siguiente Paso
-                <ArrowRight size={14} />
-              </button>
+              {inviteType === 'cajero' ? (
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="btn btn-sm btn-primary w-full gap-2 text-xs h-9 rounded-xl font-bold mt-2"
+                >
+                  {loading ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    <CheckCircle size={14} />
+                  )}
+                  Completar Registro
+                </button>
+              ) : (
+                <button 
+                  type="button" 
+                  onClick={nextStep}
+                  className="btn btn-sm btn-primary w-full gap-2 text-xs h-9 rounded-xl font-bold mt-2"
+                >
+                  Siguiente Paso
+                  <ArrowRight size={14} />
+                </button>
+              )}
             </div>
           )}
 
