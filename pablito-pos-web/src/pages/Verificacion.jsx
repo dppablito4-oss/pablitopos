@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer, Camera, AlertTriangle } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
 import { Html5Qrcode } from 'html5-qrcode';
-import html2pdf from 'html2pdf.js';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();

@@ -3,7 +3,8 @@ import { FileText, Building2, User, ShoppingCart, Loader2, Search, Printer, Send
 import { supabase } from '../lib/supabase';
 import { generarHashSunat } from '../lib/sunatService';
 import PrintReceipt from '../components/PrintReceipt';
-import html2pdf from 'html2pdf.js';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { useCompany, REGIME_CONFIG } from '../contexts/CompanyContext';
 
 const FILTER_TYPES = [
@@ -32,31 +33,62 @@ const Historial = () => {
   useEffect(() => { fetchVentas(); }, []);
 
   useEffect(() => {
-    if (downloadPdfTrigger && receiptToPrint) {
-      setTimeout(() => {
-        const element = document.getElementById('historial-print-receipt');
-        if (element) {
-          const v = receiptToPrint;
-          const fileName = `${company?.ruc || 'RUC'}-${v.series?.startsWith('F') ? '01' : '03'}-${v.series}-${String(v.number).padStart(8,'0')}.pdf`;
-          
-          const opt = {
-            margin: printFormat === 'TICKET' ? 10 : 0,
-            filename: fileName,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-          };
+    if (!downloadPdfTrigger || !receiptToPrint) return;
 
-          html2pdf().set(opt).from(element).save().then(() => {
-            setDownloadPdfTrigger(false);
-          }).catch(err => {
-            console.error("Error PDF:", err);
-            setDownloadPdfTrigger(false);
-            alert("Error al generar el PDF. Intente nuevamente.");
-          });
-        }
-      }, 500);
-    }
+    const generarPDF = async () => {
+      // Esperar a que React renderice el componente oculto
+      await new Promise(r => setTimeout(r, 800));
+
+      const element = document.getElementById('historial-print-receipt');
+      if (!element) {
+        console.error('No se encontró el elemento historial-print-receipt');
+        setDownloadPdfTrigger(false);
+        return;
+      }
+
+      try {
+        // 1. Capturar el HTML como imagen con html2canvas
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
+
+        // 2. Convertir canvas a imagen
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+
+        // 3. Crear el PDF con jsPDF
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+        });
+
+        // 4. Calcular dimensiones para que quepa en A4
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+        const scaledWidth = imgWidth * ratio;
+        const scaledHeight = imgHeight * ratio;
+
+        pdf.addImage(imgData, 'PNG', 0, 0, scaledWidth, scaledHeight);
+
+        // 5. Generar nombre de archivo y descargar
+        const v = receiptToPrint;
+        const fileName = `${company?.ruc || 'RUC'}-${v.series?.startsWith('F') ? '01' : '03'}-${v.series}-${String(v.number).padStart(8, '0')}.pdf`;
+        pdf.save(fileName);
+      } catch (err) {
+        console.error('Error generando PDF:', err);
+        alert('Error al generar el PDF: ' + err.message);
+      } finally {
+        setDownloadPdfTrigger(false);
+      }
+    };
+
+    generarPDF();
   }, [downloadPdfTrigger, receiptToPrint, company]);
 
   const fetchVentas = async () => {
