@@ -100,7 +100,7 @@ const PrintReceipt = ({ cart, totals, emisionType, printFormat, receiptData, reg
           <div>
             <p style={{ margin: '0' }}><b>Cliente:</b> {receiptData.cliente.rznSocial}</p>
             <p style={{ margin: '0' }}><b>Documento:</b> {receiptData.cliente.numDoc}</p>
-            <p style={{ margin: '0' }}><b>F. Pago:</b> Efectivo</p>
+            <p style={{ margin: '0' }}><b>F. Pago:</b> {receiptData?.paymentMethod || 'Efectivo'}</p>
           </div>
 
           <Dashed />

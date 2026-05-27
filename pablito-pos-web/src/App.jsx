@@ -19,16 +19,19 @@ import { useEffect } from 'react';
 
 function App() {
   useEffect(() => {
-    // Ping al servidor de facturación (Render) para evitar el Cold-Start
-    pingSunatApi();
-
-    // Mantener despierto a Render enviando una petición cada 12 minutos
-    const intervalId = setInterval(() => {
+    // BUG-034 FIX: Solo hacer ping si estamos en producción
+    if (import.meta.env.PROD) {
+      // Ping al servidor de facturación (Render) para evitar el Cold-Start
       pingSunatApi();
-      console.log("📡 Render Keep-Alive: Ping automático enviado.");
-    }, 12 * 60 * 1000);
 
-    return () => clearInterval(intervalId);
+      // Mantener despierto a Render enviando una petición cada 12 minutos
+      const intervalId = setInterval(() => {
+        pingSunatApi();
+        console.log("📡 Render Keep-Alive: Ping automático enviado.");
+      }, 12 * 60 * 1000);
+
+      return () => clearInterval(intervalId);
+    }
   }, []);
 
   return (

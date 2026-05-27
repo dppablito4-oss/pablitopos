@@ -11,6 +11,7 @@ const Dashboard = () => {
     topProductos: [],
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [hora, setHora] = useState(new Date());
   const { company, regimeConfig } = useCompany();
@@ -24,13 +25,14 @@ const Dashboard = () => {
   useEffect(() => {
     if (company) {
       fetchStats();
-      const interval = setInterval(fetchStats, 30000); // auto-refresh 30s
+      const interval = setInterval(() => fetchStats(true), 30000); // auto-refresh 30s
       return () => clearInterval(interval);
     }
   }, [company]);
 
-  const fetchStats = async () => {
-    setIsLoading(true);
+  const fetchStats = async (isAutoRefresh = false) => {
+    if (isAutoRefresh) setIsRefreshing(true);
+    else setIsLoading(true);
     setError(null);
     try {
       const hoyStart = new Date(); hoyStart.setHours(0,0,0,0);
@@ -74,6 +76,7 @@ const Dashboard = () => {
       setError('Error al cargar estadísticas: ' + e.message);
     }
     setIsLoading(false);
+    setIsRefreshing(false);
   };
 
   const pctChange = (hoy, ayer) => {
@@ -123,8 +126,8 @@ const Dashboard = () => {
           <p className="text-lg md:text-2xl font-bold font-mono tabular-nums">
             {hora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </p>
-          <button className="btn btn-ghost btn-sm" onClick={fetchStats} disabled={isLoading}>
-            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+          <button className="btn btn-ghost btn-sm" onClick={() => fetchStats(true)} disabled={isLoading || isRefreshing}>
+            <RefreshCw size={16} className={(isLoading || isRefreshing) ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>

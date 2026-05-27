@@ -21,7 +21,7 @@ export const getMonthlyOfficialSalesTotal = async () => {
       return 0;
     }
 
-    const totalAcumulado = data.reduce((sum, sale) => sum + (sale.total || 0), 0);
+    const totalAcumulado = data.reduce((sum, sale) => sum + parseFloat(sale.total || 0), 0);
     return totalAcumulado;
   } catch (err) {
     console.error("Unexpected error in NRUS service:", err);

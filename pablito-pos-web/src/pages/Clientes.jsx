@@ -66,8 +66,9 @@ const Clientes = () => {
     }
     setSaving(false);
     if (err) { alert('Error: ' + err.message); return; }
+    const currentEditingId = editingId; // BUG-010 FIX
     closeModal();
-    logAudit(editingId ? 'CLIENTE_EDITADO' : 'CLIENTE_CREADO', payload.full_name);
+    logAudit(currentEditingId ? 'CLIENTE_EDITADO' : 'CLIENTE_CREADO', payload.full_name);
     fetchClientes();
   };
 
@@ -172,7 +173,7 @@ const Clientes = () => {
               <div className="form-control">
                 <label className="label"><span className="label-text">DNI / RUC</span></label>
                 <input type="text" maxLength={11} className="input input-bordered" placeholder="Ej: 12345678"
-                  value={form.dni} onChange={e => setForm({...form, dni: e.target.value.replace(/\D/,'')})} />
+                  value={form.dni} onChange={e => setForm({...form, dni: e.target.value.replace(/\D/g,'')})} />
               </div>
               <div className="form-control">
                 <label className="label"><span className="label-text font-semibold">Nombre Completo *</span></label>

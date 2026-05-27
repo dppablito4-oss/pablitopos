@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
@@ -47,7 +47,7 @@ export const CompanyProvider = ({ children }) => {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchCompany = async () => {
+  const fetchCompany = useCallback(async () => {
     if (!profile?.company_id) {
       setCompany(null);
       setLoading(false);
@@ -73,11 +73,11 @@ export const CompanyProvider = ({ children }) => {
       setCompany(null);
     }
     setLoading(false);
-  };
+  }, [profile]);
 
   useEffect(() => { 
     fetchCompany(); 
-  }, [profile]);
+  }, [fetchCompany]);
 
   const regime = company?.tax_regime || 'nrus';
   const regimeConfig = REGIME_CONFIG[regime] || REGIME_CONFIG.nrus;

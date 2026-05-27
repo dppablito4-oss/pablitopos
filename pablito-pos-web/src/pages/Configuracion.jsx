@@ -23,7 +23,6 @@ const Configuracion = () => {
   const [cajeros, setCajeros] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [cajeroEmail, setCajeroEmail] = useState('');
-  const [cajeroName, setCajeroName] = useState('');
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
@@ -523,12 +522,14 @@ const Configuracion = () => {
                       </thead>
                       <tbody>
                         {invitations.filter(i => !i.is_used).map((inv) => {
-                          const registerLink = `${window.location.origin}/registrarse?invite=${inv.id}`;
+                          // BUG-036 FIX: Incluir el hash en la URL para HashRouter
+                          const registerLink = `${window.location.origin}${window.location.pathname}#/registrarse?invite=${inv.id}`;
                           const isExpired = new Date(inv.expires_at) < new Date();
                           return (
                             <tr key={inv.id} className="hover:bg-base-300/10">
                               <td className="font-semibold text-base-content/85">
                                 {inv.email || <span className="italic text-base-content/40">Cualquiera</span>}
+                                {isExpired && <span className="badge badge-error badge-xs ml-2">Expirado</span>} {/* BUG-015 FIX */}
                               </td>
                               <td>
                                 <div className="flex items-center gap-2 max-w-[200px] sm:max-w-none">

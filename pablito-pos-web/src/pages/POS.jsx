@@ -94,6 +94,22 @@ const POS = () => {
           return;
         }
       }
+
+      // BUG-008 FIX: Validar stock de todos los items antes de la inserción
+      for (const item of cart) {
+        const { data: prodData } = await supabase
+          .from('products')
+          .select('stock, name')
+          .eq('id', item.id)
+          .single();
+          
+        if (prodData && prodData.stock !== null && prodData.stock < item.quantity) {
+          alert(`Stock insuficiente para: ${prodData.name || item.name}. Stock actual: ${prodData.stock}`);
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       const series = isBoleta ? 'B001' : isFactura ? 'F001' : isCotizacion ? 'PRF' : isAdelanto ? 'ADL' : 'NV01';
 
       // Totales ya calculados correctamente en el store
@@ -118,11 +134,10 @@ const POS = () => {
         .from('sales')
         .insert([{
           series,
-          client_id: clientId,
+          client_id: clientId, // BUG-002 FIX: solo una vez, usa clientId calculado arriba
           subtotal: subtotalFloat,
           igv: igvFloat,
           total: totalFloat,
-          client_id: selectedClient?.id || null,
           company_id: company?.id || 1,
           is_proforma: isCotizacion,
           is_adelanto: isAdelanto,

@@ -254,7 +254,7 @@ const Registrarse = () => {
           </div>
         )}
 
-        <form onSubmit={inviteType === 'cajero' ? handleSubmit : undefined} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           
           {/* STEP 1: ACCOUNT DETAILS */}
           {step === 1 && (

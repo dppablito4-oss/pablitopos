@@ -11,7 +11,20 @@ ini_set('display_errors', '0');
 // para el QR del ticket.
 
 header("Content-Type: application/json; charset=utf-8");
-header("Access-Control-Allow-Origin: *");
+
+// BUG-003 FIX: Restringir CORS solo a dominios autorizados (ya no es wildcard)
+$allowedOrigins = [
+    'https://facturacion.sypablitodp.site',
+    'https://sypablitodp.site',
+    'http://localhost:5173',  // Dev local
+    'http://localhost:4173',  // Preview local
+];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins)) {
+    header("Access-Control-Allow-Origin: $origin");
+} else {
+    header("Access-Control-Allow-Origin: https://facturacion.sypablitodp.site");
+}
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
@@ -65,33 +78,38 @@ $supabaseUrl = getenv('SUPABASE_URL');
 $supabaseAnon = getenv('SUPABASE_ANON_KEY');
 $supabaseService = getenv('SUPABASE_SERVICE_KEY');
 
-// 1. Validar Seguridad (Autenticación via JWT de Supabase)
+// BUG-004 FIX: Forzar error si las variables de entorno de seguridad no están configuradas
+if (!$supabaseUrl || !$supabaseAnon) {
+    http_response_code(500);
+    echo json_encode(["success" => false, "error" => "Error de configuración del servidor. Variables de entorno de Supabase no encontradas."]);
+    exit();
+}
+
+// 1. Validar Seguridad (Autenticación via JWT de Supabase) — SIEMPRE obligatorio
 $headers = getallheaders();
 $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
 $jwt = trim(str_replace('Bearer', '', $authHeader));
 
-if ($supabaseUrl && $supabaseAnon) {
-    if (empty($jwt)) {
-        http_response_code(401);
-        echo json_encode(["success" => false, "error" => "No autorizado. Token requerido."]);
-        exit();
-    }
-    // Consultar a Supabase si el token pertenece a un usuario válido
-    $ch = curl_init("$supabaseUrl/auth/v1/user");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "apikey: $supabaseAnon",
-        "Authorization: Bearer $jwt"
-    ]);
-    $res = curl_exec($ch);
-    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    if ($httpcode !== 200) {
-        http_response_code(401);
-        echo json_encode(["success" => false, "error" => "Token inválido o expirado."]);
-        exit();
-    }
+if (empty($jwt)) {
+    http_response_code(401);
+    echo json_encode(["success" => false, "error" => "No autorizado. Token requerido."]);
+    exit();
+}
+// Consultar a Supabase si el token pertenece a un usuario válido
+$ch = curl_init("$supabaseUrl/auth/v1/user");
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "apikey: $supabaseAnon",
+    "Authorization: Bearer $jwt"
+]);
+$res = curl_exec($ch);
+$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($httpcode !== 200) {
+    http_response_code(401);
+    echo json_encode(["success" => false, "error" => "Token inválido o expirado."]);
+    exit();
 }
 
 // 2. Leer datos que envía React (JSON del body)
@@ -118,14 +136,15 @@ $igv        = floatval($input['igv'] ?? 0);
 $total      = floatval($input['total'] ?? 0);
 $leyenda    = $input['leyenda'] ?? 'SON CERO CON 00/100 SOLES';
 
-// Credenciales Dinámicas (Primero las del input por compatibilidad temporal)
-$solUser    = $input['sol_user'] ?? 'MODDATOS';
-$solPass    = $input['sol_pass'] ?? 'MODDATOS';
-$certPem    = $input['cert_pem'] ?? null;
+// BUG-005 FIX: Credenciales NUNCA se leen del request del cliente.
+// Solo se obtienen de la BD de forma segura.
+$solUser    = 'MODDATOS';
+$solPass    = 'MODDATOS';
+$certPem    = null;
 $production = filter_var($input['production'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-// 2.5 (SEGURIDAD CRÍTICA): Obtener credenciales desde la BD si la API está configurada
-if ($supabaseUrl && $supabaseService) {
+// 2.5 (SEGURIDAD CRÍTICA): Obtener credenciales SOLO desde la BD
+if ($supabaseService) {
     $ch = curl_init("$supabaseUrl/rest/v1/company_profile?select=sol_user,sol_pass,cert_pem,production&is_active=eq.true&limit=1");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -138,12 +157,14 @@ if ($supabaseUrl && $supabaseService) {
     
     $companies = json_decode($response, true);
     if (is_array($companies) && count($companies) > 0) {
-        // Sobreescribir con las credenciales reales
         $solUser = $companies[0]['sol_user'] ?? 'MODDATOS';
         $solPass = $companies[0]['sol_pass'] ?? 'MODDATOS';
         $certPem = $companies[0]['cert_pem'] ?? null;
         $production = filter_var($companies[0]['production'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
+} else {
+    // Sin SUPABASE_SERVICE_KEY no podemos obtener credenciales seguras
+    // Solo se puede operar en modo BETA con credenciales por defecto (MODDATOS)
 }
 
 // Validar que haya items

@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { CheckCircle, XCircle, FileText, Building2, User, ShoppingCart, Loader2, Search, Download, Printer, Camera, AlertTriangle } from 'lucide-react';
 import PrintReceipt from '../components/PrintReceipt';
 import { Html5Qrcode } from 'html5-qrcode';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const Verificacion = () => {
   const [searchParams] = useSearchParams();
@@ -381,19 +383,44 @@ const Verificacion = () => {
     setTimeout(() => { document.title = originalTitle; }, 1000);
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const element = document.getElementById('pdf-preview-content');
     if (!element) return;
-    
-    const opt = {
-      margin:       0,
-      filename:     `${getFileNameBase()}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 4, useCORS: true },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(element).save();
+
+    try {
+      // BUG-006 FIX: Usar html2canvas + jsPDF (html2pdf no estaba importado)
+      const scaleVal = 4;
+      const canvas = await html2canvas(element, {
+        scale: scaleVal,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach(el => {
+            const computed = clonedDoc.defaultView.getComputedStyle(el);
+            if (computed.color?.includes('oklch')) el.style.color = '#000000';
+            if (computed.backgroundColor?.includes('oklch')) el.style.backgroundColor = 'transparent';
+            if (computed.borderColor?.includes('oklch')) el.style.borderColor = '#cccccc';
+          });
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const margin = 10;
+      const targetWidth = pdfWidth - (margin * 2);
+      const originalWidth = element.offsetWidth || 794;
+      const originalHeight = element.offsetHeight || (canvas.height / scaleVal);
+      const targetHeight = (originalHeight * targetWidth) / originalWidth;
+
+      pdf.addImage(imgData, 'PNG', margin, margin, targetWidth, targetHeight);
+      pdf.save(`${getFileNameBase()}.pdf`);
+    } catch (err) {
+      console.error('Error generando PDF:', err);
+      alert('Error al generar el PDF: ' + err.message);
+    }
   };
 
   const receiptData = {

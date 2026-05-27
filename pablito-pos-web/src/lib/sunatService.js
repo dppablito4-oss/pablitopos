@@ -5,7 +5,8 @@ const SUNAT_API_URL = import.meta.env.VITE_SUNAT_API_URL || 'https://pablitopos.
 // Ping para despertar el servidor Render
 export const pingSunatApi = async () => {
   try {
-    fetch(`${SUNAT_API_URL}/ping`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+    // BUG-016 FIX: Backend GET handler está en la raíz '/'
+    fetch(`${SUNAT_API_URL}/`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
   } catch (e) {
     // Ignoramos errores, es solo un ping
   }
